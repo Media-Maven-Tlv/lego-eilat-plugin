@@ -26,7 +26,7 @@
  */
 
 // If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
+if (!defined('WPINC')) {
 	die;
 }
 
@@ -35,14 +35,15 @@ if ( ! defined( 'WPINC' ) ) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'WOOCOMMERCE_EILAT_MODE_VERSION', '1.0.0' );
+define('WOOCOMMERCE_EILAT_MODE_VERSION', '1.0.0');
 
 /**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-woocommerce-eilat-mode-activator.php
  */
-function activate_woocommerce_eilat_mode() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-woocommerce-eilat-mode-activator.php';
+function activate_woocommerce_eilat_mode()
+{
+	require_once plugin_dir_path(__FILE__) . 'includes/class-woocommerce-eilat-mode-activator.php';
 	Woocommerce_Eilat_Mode_Activator::activate();
 }
 
@@ -50,19 +51,20 @@ function activate_woocommerce_eilat_mode() {
  * The code that runs during plugin deactivation.
  * This action is documented in includes/class-woocommerce-eilat-mode-deactivator.php
  */
-function deactivate_woocommerce_eilat_mode() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-woocommerce-eilat-mode-deactivator.php';
+function deactivate_woocommerce_eilat_mode()
+{
+	require_once plugin_dir_path(__FILE__) . 'includes/class-woocommerce-eilat-mode-deactivator.php';
 	Woocommerce_Eilat_Mode_Deactivator::deactivate();
 }
 
-register_activation_hook( __FILE__, 'activate_woocommerce_eilat_mode' );
-register_deactivation_hook( __FILE__, 'deactivate_woocommerce_eilat_mode' );
+register_activation_hook(__FILE__, 'activate_woocommerce_eilat_mode');
+register_deactivation_hook(__FILE__, 'deactivate_woocommerce_eilat_mode');
 
 /**
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
-require plugin_dir_path( __FILE__ ) . 'includes/class-woocommerce-eilat-mode.php';
+require plugin_dir_path(__FILE__) . 'includes/class-woocommerce-eilat-mode.php';
 
 /**
  * Begins execution of the plugin.
@@ -73,10 +75,23 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-woocommerce-eilat-mode.php
  *
  * @since    1.0.0
  */
-function run_woocommerce_eilat_mode() {
+function run_woocommerce_eilat_mode()
+{
 
 	$plugin = new Woocommerce_Eilat_Mode();
 	$plugin->run();
-
 }
 run_woocommerce_eilat_mode();
+
+
+require 'plugin-update-checker/plugin-update-checker.php';
+
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+	'https://github.com/Media-Maven-Tlv/lego-eilat-plugin',
+	__FILE__,
+	'woocommerce-eilat-mode'
+);
+
+$myUpdateChecker->setBranch('main');

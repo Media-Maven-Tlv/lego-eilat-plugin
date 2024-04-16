@@ -226,18 +226,7 @@ class Woocommerce_Eilat_Mode
 	}
 }
 
-require 'plugin-update-checker/plugin-update-checker.php';
 
-use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
-
-$myUpdateChecker = PucFactory::buildUpdateChecker(
-	'https://github.com/Media-Maven-Tlv/lego-eilat-plugin',
-	__FILE__,
-	'woocommerce-eilat-mode'
-);
-
-//Set the branch that contains the stable release.
-$myUpdateChecker->setBranch('main');
 
 
 // register custom order status
