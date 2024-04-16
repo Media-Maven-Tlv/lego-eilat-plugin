@@ -97,12 +97,14 @@ class Woocommerce_Eilat_Mode_Admin
 		 * between the defined hooks and the functions defined in this
 		 * class.
 		 */
-		// wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
-		// wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
-		// wp_enqueue_script('flatpickr-i18n', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/he.js', array(), '4.6.6', false);
-		// wp_enqueue_style('flatpickr-airbnb', '//cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css', array(), '4.6.6');
-		// wp_enqueue_script('choices', '//cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/scripts/choices.min.js', array('jquery'), '4.0.13', false);
-		// wp_enqueue_style('choices', '//cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css', array(), '4.0.13');
+		wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
+		wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
+		wp_enqueue_script('flatpickr-i18n', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/he.js', array(), '4.6.6', false);
+		wp_enqueue_style('flatpickr-airbnb', '//cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css', array(), '4.6.6');
+		wp_enqueue_script('choices', '//cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/scripts/choices.min.js', array('jquery'), '4.0.13', false);
+		wp_enqueue_style('choices', '//cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css', array(), '4.0.13');
+
+
 		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-admin.js', array('jquery', 'flatpickr'), $this->version, false);
 	}
 }

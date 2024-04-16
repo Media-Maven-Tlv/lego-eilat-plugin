@@ -2,6 +2,48 @@
   'use strict';
 
   $(document).ready(function () {
+    $('#order_delivery_date').flatpickr({
+      locale: 'he',
+      minDate: 'today',
+      disable: [
+        function (date) {
+          var formattedDate =
+            date.getDate().toString().padStart(2, '0') +
+            '/' +
+            (date.getMonth() + 1).toString().padStart(2, '0') +
+            '/' +
+            date.getFullYear().toString();
+
+          return (
+            excluded_dates.includes(formattedDate) || // Check if date is in excluded_dates
+            date.getDay() === 6 || // Disable Saturdays
+            date.getDay() === 5 // Disable Fridays
+          );
+        },
+      ],
+      dateFormat: 'd/m/Y',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      enableTime: false,
+      time_24hr: true,
+      theme: 'airbnb',
+      // plugins: [new confirmDatePlugin({
+      //   confirmText: "אישור",
+      //   showAlways: false,
+      //   theme: "dark"
+      // })]
+      // onChange: function (selectedDates, dateStr, instance) {
+      //   console.log(dateStr);
+      // },
+    });
+
+    $('#order_delivery_time').select2({
+      placeholder: 'בחר שעה',
+      allowClear: true,
+      width: '100%',
+      style: 'border: 1px solid #ccc',
+    });
+
     function setCookie(name, value, days) {
       var expires = '';
       if (days) {
@@ -107,6 +149,7 @@
 
     $(document.body).on('change', 'select#shipping_method_0', function () {
       var selectedShippingMethod = $(this).val();
+      toggle_delivery_details();
 
       // Toggle Eilat mode based on shipping method selection
       if (selectedShippingMethod === 'local_pickup:13') {
@@ -119,8 +162,9 @@
         });
         toggleBillingFields(false);
         // toggleCheckoutButton(false);
-        $('.orddd-checkout-fields').show();
+        // $('.orddd-checkout-fields').show();
         checkStock(true);
+        // $('#order_delivery_date_fields').show();
       } else {
         setCookie('eilatMode', 'false', 1); // Expires in 1 day
         $('#billing_city').val('');
@@ -132,8 +176,9 @@
         });
         toggleBillingFields(true);
         // toggleCheckoutButton(true);
-        $('.orddd-checkout-fields').hide();
+        // $('.orddd-checkout-fields').hide();
         checkStock(false);
+        // $('#order_delivery_date_fields').hide();
       }
 
       // Trigger checkout update to reflect changes
@@ -202,10 +247,14 @@
       if (document.cookie.indexOf('eilatMode=true') !== -1) {
         $('button#place_order').text('הזמנה מאילת');
         $('button#place_order').attr('id', 'eilat_place_order');
-
+        $('button#eilat_place_order').attr('type', 'button');
+        var status = false;
         $('#eilat_place_order').on('click', function (e) {
+          if (status) {
+            return;
+          }
           e.preventDefault();
-          if (customValidationPasses()) {
+          if (customValidationPasses() && status === false) {
             var orderData = $('form.checkout').serialize();
 
             $.ajax({
@@ -217,7 +266,9 @@
               },
               success: function (response) {
                 // Handle response here. Redirect to thank you page or show message
+                status = true;
                 if (response.success) {
+                  status = true;
                   window.location.href = response.data.redirect_url;
                 } else {
                   // Handle failure
@@ -228,6 +279,7 @@
                   // ]);
                   const message = response.data.message;
                   const error = response.data.error;
+                  status = false;
 
                   Swal.fire({
                     icon: 'error',
@@ -271,5 +323,25 @@
     } else {
       jQuery('#toggleEilatMode').text('הזמנה מאילת');
     }
+
+    // Function to toggle delivery details
+    function toggle_delivery_details() {
+      var chosen_shipping_method = $('#shipping_method_0').val();
+      var display =
+        chosen_shipping_method == 'local_pickup:13' ? 'block' : 'none';
+
+      $('#custom_delivery_details').css('display', display);
+
+      // Make fields required if local pickup is selected
+      $('#order_delivery_date, #order_delivery_time').prop(
+        'required',
+        chosen_shipping_method == 'local_pickup:13'
+      );
+    }
+
+    // Check on initial load
+    toggle_delivery_details();
+
+    //init flatpicker on order_delivery_date
   });
 })(jQuery);

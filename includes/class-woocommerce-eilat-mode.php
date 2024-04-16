@@ -655,18 +655,6 @@ function process_eilat_order()
 	}
 
 	parse_str($_POST['order_data'], $order_data);
-	$order = wc_create_order();
-	$cart_items = WC()->cart->get_cart();
-
-	foreach ($cart_items as $cart_item_key => $cart_item) {
-		$product = $cart_item['data'];
-		$quantity = $cart_item['quantity'];
-
-		if (is_a($product, 'WC_Product')) {
-			$order->add_product($product, $quantity);
-		}
-	}
-
 	// Set billing from the $order_data array
 	$billing_address = [
 		'first_name' => $order_data['billing_first_name'],
@@ -677,14 +665,20 @@ function process_eilat_order()
 		'address_2'  => $order_data['billing_address_2'],
 		'city'       => $order_data['billing_city'],
 		'state'      => $order_data['billing_state'],
-		// 'pickup_date_field' => $order_data['coderockz_woo_delivery_pickup_date_field'],
-		// 'pickup_time_field' => $order_data['coderockz_woo_delivery_pickup_time_field'],
-		'pickup_date_field' => $order_data['e_deliverydate_0'],
-		'pickup_time_field' => $order_data['orddd_time_slot_0'],
+		// 'pickup_date_field' => $order_data['h_deliverydate_0'],
+		// 'pickup_time_field' => $order_data['orddd_time_slot_0'],
+		'order_delivery_date' => $order_data['order_delivery_date'],
+		'order_delivery_time' => $order_data['order_delivery_time'],
 	];
 
+	//check if terms_field is checked
+	if (!isset($order_data['terms'])) {
+		wp_send_json_error(['message' => 'יש לאשר את תנאי השימוש ומדיניות הפרטיות.']);
+		wp_die();
+	}
+
 	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'pickup_date_field', 'pickup_time_field'];
+	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'order_delivery_date', 'order_delivery_time'];
 	$empty_fields = [];
 	foreach ($required_fields as $field) {
 		if (empty($billing_address[$field])) {
@@ -696,12 +690,27 @@ function process_eilat_order()
 		return WC_AJAX::get_refreshed_fragments();
 	}
 
+	$order = wc_create_order();
+
+	$cart_items = WC()->cart->get_cart();
+
+	foreach ($cart_items as $cart_item_key => $cart_item) {
+		$product = $cart_item['data'];
+		$quantity = $cart_item['quantity'];
+
+		if (is_a($product, 'WC_Product')) {
+			$order->add_product($product, $quantity);
+		}
+	}
 
 	$order->set_address($billing_address, 'billing');
 
 	$order->set_payment_method('cod'); // Assuming cash on delivery
 	$order->calculate_totals(false);
 	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
+	$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
+	$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
+	$order->save();
 
 	$redirect_url = $order->get_checkout_order_received_url();
 
@@ -796,3 +805,127 @@ function clear_cart()
 
 	wp_die();
 }
+
+
+add_action('wp_footer', 'add_eilat_banner');
+function add_eilat_banner()
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') : ?>
+		<div class="eilat-banner d-flex justify-content-center align-items-center p-2 gap-3" style="
+    position: fixed;
+    z-index: 99999999999;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: green;
+">
+			<p class="text-center text-light mb-0">מצב הזמנה מאילת</p>
+		</div>
+<?php endif;
+}
+
+
+function add_custom_checkout_fields_between_shipping_and_payment($checkout)
+{
+	if (!is_a($checkout, 'WC_Checkout')) {
+		$checkout = WC()->checkout();
+	}
+	echo '<div id="custom_delivery_details" style="display:none;"><h3>' . __('Delivery Details') . '</h3>';
+
+	// Delivery Date Field
+	woocommerce_form_field('order_delivery_date', array(
+		'type'          => 'text',
+		'class'         => array('order-delivery-date form-row-wide'),
+		'label'         => __('Delivery Date'),
+		'required'      => false,  // Initially not required
+	), $checkout->get_value('order_delivery_date'));
+
+	// Delivery Time Field
+	woocommerce_form_field('order_delivery_time', array(
+		'type'          => 'select',
+		'class'         => array('order-delivery-time form-row-wide'),
+		'options'				=> array(
+			'' => 'בחר זמן משלוח',
+			'9:00 - 9:30' => '9:00 - 9:30',
+			'9:30 - 10:00' => '9:30 - 10:00',
+			'10:00 - 10:30' => '10:00 - 10:30',
+			'10:30 - 11:00' => '10:30 - 11:00',
+			'11:00 - 11:30' => '11:00 - 11:30',
+			'11:30 - 12:00' => '11:30 - 12:00',
+			'12:00 - 12:30' => '12:00 - 12:30',
+			'12:30 - 13:00' => '12:30 - 13:00',
+			'13:00 - 13:30' => '13:00 - 13:30',
+			'13:30 - 14:00' => '13:30 - 14:00',
+			'14:00 - 14:30' => '14:00 - 14:30',
+			'14:30 - 15:00' => '14:30 - 15:00',
+			'15:00 - 15:30' => '15:00 - 15:30',
+			'15:30 - 16:00' => '15:30 - 16:00',
+			'16:00 - 16:30' => '16:00 - 16:30',
+			'16:30 - 17:00' => '16:30 - 17:00',
+			'17:00 - 17:30' => '17:00 - 17:30',
+			'17:30 - 18:00' => '17:30 - 18:00',
+		),
+		'label'         => '',
+		'placeholder'     => '',
+		'required'      => false,  // Initially not required
+	), $checkout->get_value('order_delivery_time'));
+
+	echo '</div>';
+}
+
+add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_fields_between_shipping_and_payment');
+
+function save_custom_checkout_fields($order_id)
+{
+	if (isset($_POST['order_delivery_date']) && !empty($_POST['order_delivery_date'])) {
+		update_post_meta($order_id, 'Order Delivery Date', sanitize_text_field($_POST['order_delivery_date']));
+	}
+
+	if (isset($_POST['order_delivery_time']) && !empty($_POST['order_delivery_time'])) {
+		update_post_meta($order_id, 'Order Delivery Time', sanitize_text_field($_POST['order_delivery_time']));
+	}
+}
+add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');
+
+
+
+
+function display_editable_custom_fields_in_order_admin($order)
+{
+	wp_nonce_field('update_order_delivery_time', 'custom_fields_nonce');
+
+	// Display a text input for delivery time
+	$delivery_time = get_post_meta($order->get_id(), 'order_delivery_time', true);
+	$delivery_date = get_post_meta($order->get_id(), 'order_delivery_date', true);
+
+	echo '<div class="form-field form-field-wide"><h4>Delivery Date</h4>';
+	echo '<input type="text" id="order_delivery_date" name="order_delivery_date" value="' . esc_attr($delivery_date) . '">';
+	echo '</div>';
+
+	echo '<div class="form-field form-field-wide"><h4>Delivery Time</h4>';
+	echo '<input type="text" id="order_delivery_time" name="order_delivery_time" value="' . esc_attr($delivery_time) . '">';
+	echo '</div>';
+}
+add_action('woocommerce_admin_order_data_after_billing_address', 'display_editable_custom_fields_in_order_admin');
+
+function save_custom_fields_on_admin_order_save($post_id, $post)
+{
+	// Check user capabilities
+	if (!current_user_can('edit_shop_orders', $post_id)) {
+		return;
+	}
+
+	// Check if our nonce is set (you should create a nonce field in your form to verify).
+	if (!isset($_POST['custom_fields_nonce']) || !wp_verify_nonce($_POST['custom_fields_nonce'], 'update_order_delivery_time')) {
+		return;
+	}
+
+	// Sanitize and save the field if it's set
+	if (isset($_POST['order_delivery_time'])) {
+		update_post_meta($post_id, 'order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
+	}
+	if (isset($_POST['order_delivery_date'])) {
+		update_post_meta($post_id, 'order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
+	}
+}
+add_action('woocommerce_process_shop_order_meta', 'save_custom_fields_on_admin_order_save', 10, 2);

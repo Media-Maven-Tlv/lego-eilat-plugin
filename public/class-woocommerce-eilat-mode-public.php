@@ -98,24 +98,25 @@ class Woocommerce_Eilat_Mode_Public
 		 * class.
 		 */
 
-		// if (is_checkout() && isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
-		// wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
-		// wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
-		// wp_enqueue_style('flatpickr-airbnb', '//cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css', array(), '4.6.6');
-		// wp_enqueue_script('flatpickr-i18n', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/he.js', array(), '4.6.6', false);
+		if (is_checkout() && isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+			wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
+			wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
+			wp_enqueue_style('flatpickr-airbnb', '//cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css', array(), '4.6.6');
+			wp_enqueue_script('flatpickr-i18n', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/he.js', array(), '4.6.6', false);
+			wp_enqueue_script('select2', '//cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', array('jquery'), '4.0.13', false);
+			wp_enqueue_style('select2', '//cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', array(), '4.0.13');
+			wp_enqueue_script('sweetalert2', '//cdn.jsdelivr.net/npm/sweetalert2@11', array(), '11', false);
 
+			wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public.js', array(
+				'jquery', 'sweetalert2'
+			), $this->version, false);
 
-		// }
+			wp_localize_script($this->plugin_name, 'checkout_params', array('ajaxurl' => admin_url('admin-ajax.php')));
+			$excluded_dates = get_option('excluded_dates');
+			$excluded_dates = explode(',', $excluded_dates);
+			$excluded_dates = array_map('trim', $excluded_dates);
 
-		wp_enqueue_script('sweetalert2', '//cdn.jsdelivr.net/npm/sweetalert2@11', array(), '11', false);
-
-		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public.js', array(
-			'jquery', 'sweetalert2'
-		), $this->version, false);
-
-		// wp_localize_script($this->plugin_name, 'checkout_params', array('ajaxurl' => admin_url('admin-ajax.php')));
-		// $excluded_dates = get_option('excluded_dates');
-
-		// wp_localize_script($this->plugin_name, 'excluded_dates', $excluded_dates);
+			wp_localize_script($this->plugin_name, 'excluded_dates', $excluded_dates);
+		}
 	}
 }
