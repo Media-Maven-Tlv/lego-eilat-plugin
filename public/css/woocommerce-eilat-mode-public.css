@@ -1,0 +1,11 @@
+/**
+ * All of the CSS for your public-facing functionality should be
+ * included in this file.
+ */
+#eilat_place_order {
+  width: 100%;
+  padding: 20px;
+}
+p#coderockz_woo_delivery_pickup_date_datepicker_field label {
+  display: none;
+}
