@@ -251,6 +251,23 @@ function add_custom_order_status_to_woocommerce($order_statuses)
 }
 add_filter('wc_order_statuses', 'add_custom_order_status_to_woocommerce');
 
+// Adding custom status 'wc-eilat-pickup' to admin order list bulk dropdown
+add_filter('bulk_actions-edit-shop_order', 'custom_dropdown_bulk_actions_shop_order', 20, 1);
+function custom_dropdown_bulk_actions_shop_order($actions)
+{
+	$actions['mark_wc-eilat-pickup'] = __('שינוי הסטטוס לאיסוף מאילת', 'woocommerce');
+	return $actions;
+}
+
+// Adding action for 'wc-eilat-pickup'
+add_filter('woocommerce_email_actions', 'custom_email_actions', 20, 1);
+function custom_email_actions($action)
+{
+	$actions[] = 'woocommerce_order_status_wc-eilat-pickup';
+	return $actions;
+}
+
+
 // get cookie value
 function get_cookie_eilat_mode()
 {
@@ -719,6 +736,160 @@ function process_eilat_order()
 
 	wp_send_json_success(['order_id' => $order->get_id(), 'redirect_url' => $redirect_url]);
 	wp_die();
+}
+add_action('woocommerce_order_status_eilat-pickup', 'send_eilat_order_email', 10, 1);
+function send_eilat_order_email($order_id)
+{
+	$order = wc_get_order($order_id);
+	$billing_address = $order->get_address('billing');
+	$delivery_date = $order->get_meta('order_delivery_date');
+	$delivery_time = $order->get_meta('order_delivery_time');
+
+	$subject = 'הזמנה חדשה מאילת #' . $order_id;
+	$headers = 'From: ' . get_bloginfo('name') . ' <' . get_bloginfo('admin_email') . '>' . PHP_EOL;
+	$headers .= 'Content-Type: text/html; charset=UTF-8' . PHP_EOL;
+
+	// Enhanced HTML email template
+	ob_start(); // Start output buffering to capture the template
+?>
+	<!DOCTYPE html>
+	<html dir="rtl">
+
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="x-ua-compatible" content="ie=edge">
+		<title>התקבלה הזמנה חדשה לאיסוף מאילת</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link href="https://fonts.googleapis.com/css2?family=Arial&display=swap" rel="stylesheet">
+		<style type="text/css">
+			body,
+			table,
+			td,
+			a {
+				-ms-text-size-adjust: 100%;
+				-webkit-text-size-adjust: 100%;
+			}
+
+			table,
+			td {
+				mso-table-rspace: 0pt;
+				mso-table-lspace: 0pt;
+			}
+
+			img {
+				-ms-interpolation-mode: bicubic;
+			}
+
+			body {
+				width: 100% !important;
+				height: 100% !important;
+				padding: 0 !important;
+				margin: 0 !important;
+				font-family: 'Arial', sans-serif;
+				direction: rtl;
+			}
+
+			table {
+				border-collapse: collapse !important;
+				direction: rtl;
+			}
+
+			a {
+				color: #1a82e2;
+			}
+
+			img {
+				height: auto;
+				line-height: 100%;
+				text-decoration: none;
+				border: 0;
+				outline: none;
+			}
+
+			body {
+				background-color: #e9ecef;
+			}
+		</style>
+	</head>
+
+	<body>
+		<table border="0" cellpadding="0" cellspacing="0" width="100%" dir="rtl">
+			<tr>
+				<td align="center" bgcolor="#e9ecef">
+					<table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px;">
+						<tr>
+							<td align="center" valign="top" style="padding: 36px 24px;">
+								<a href="https://lego.certifiedstore.co.il/" target="_blank" style="display: inline-block;">
+									<img src="https://lego.certifiedstore.co.il/wp-content/uploads/2022/07/fav.png" alt="Logo" border="0" width="100" style="display: block; width: 100px; max-width: 100px; min-width: 100px;">
+								</a>
+							</td>
+						</tr>
+						<tr>
+							<td align="center" bgcolor="#ffffff" style="padding: 36px 24px 0; font-family: 'Arial', sans-serif; border-top: 3px solid #d4dadf;">
+								<h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 48px;">
+									התקבלה הזמנה חדשה לאיסוף מאילת
+								</h1>
+							</td>
+						</tr>
+						<tr>
+							<td align="center" bgcolor="#ffffff" style="padding: 24px; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 24px;">
+								<p style="margin: 0;">שם: <?php echo $billing_address['first_name'] . ' ' . $billing_address['last_name']; ?></p>
+								<p style="margin: 0;">טלפון: <?php echo $billing_address['phone']; ?></p>
+								<p style="margin: 0;">אימייל: <?php echo $billing_address['email']; ?></p>
+								<p style="margin: 0;">תאריך איסוף: <?php echo $delivery_date; ?></p>
+								<p style="margin: 0;">שעת איסוף: <?php echo $delivery_time; ?></p>
+							</td>
+						</tr>
+						<tr>
+							<td align="center" bgcolor="#ffffff" style="padding: 24px; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 24px;">
+								<h2 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -1px; line-height: 36px;">
+									פרטי הזמנה מס׳ #<?php echo $order_id; ?>
+								</h2>
+							</td>
+						</tr>
+						<tr>
+							<td align="center" bgcolor="#ffffff" style="padding: 24px; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 24px;">
+								<table border="0" cellpadding="0" cellspacing="0" width="100%" dir="rtl">
+									<thead>
+										<tr>
+											<th style="text-align: right;">מוצר</th>
+											<th style="text-align: right;">מק״ט</th>
+											<th style="text-align: right;">כמות</th>
+											<th style="text-align: right;">מחיר</th>
+										</tr>
+									</thead>
+									<tbody>
+										<?php foreach ($order->get_items() as $item_id => $item) : ?>
+											<tr>
+												<td><?php echo $item->get_name(); ?></td>
+												<td><?php echo $item->get_product()->get_sku(); ?></td>
+												<td><?php echo $item->get_quantity(); ?></td>
+												<td><?php echo wc_price($item->get_total()); ?></td>
+											</tr>
+										<?php endforeach; ?>
+									</tbody>
+								</table>
+							</td>
+						<tr>
+							<td align="center" bgcolor="#ffffff" style="padding: 24px; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 24px; border-bottom: 3px solid #d4dadf">
+								<p style="margin: 0;margin-bottom: 20px;">סה"כ: <?php echo $order->get_formatted_order_total(); ?></p>
+								<a href="<?php echo $order->get_edit_order_url(); ?>" style="text-decoration: none; color: #ffffff;">
+									<button type="button" class="btn btn-primary" style="margin: 0; padding: 12px 24px; font-size: 16px; font-weight: 700; letter-spacing: -1px; line-height: 24px; background-color: #E3000B; color: #ffffff; border: none; border-radius: 4px; cursor: pointer;">צפה בהזמנה</button>
+								</a>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+
+	</html>
+	<?php
+	$message = ob_get_clean(); // Store the contents of the buffer in $message
+
+	// Send the email
+	wp_mail('dor@media-maven.co.il', $subject, $message, $headers);
 }
 
 
