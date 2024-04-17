@@ -304,47 +304,45 @@
       return null;
     }
 
-    if ($('body').hasClass('single-product')) {
-      $('.eilat-button').on('click', function (e) {
-        e.preventDefault();
-        const product_id = $(this).data('product_id');
-        const product_sku = $(this).data('product_sku');
-        const quantity = $(this).data('quantity');
-        $.ajax({
-          type: 'POST',
-          url: '/wp-admin/admin-ajax.php',
-          data: {
-            action: 'add_product_to_eilat',
-            product_id: product_id,
-            product_sku: product_sku,
-            quantity: quantity,
-          },
-          success: function (response) {
-            console.log(response);
-            $(document.body).trigger('added_to_cart', [
-              response.fragments,
-              response.cart_hash,
-            ]);
-          },
-        });
+    $('.eilat-button').on('click', function (e) {
+      e.preventDefault();
+      const product_id = $(this).data('product_id');
+      const product_sku = $(this).data('product_sku');
+      const quantity = $(this).data('quantity');
+      $.ajax({
+        type: 'POST',
+        url: '/wp-admin/admin-ajax.php',
+        data: {
+          action: 'add_product_to_eilat',
+          product_id: product_id,
+          product_sku: product_sku,
+          quantity: quantity,
+        },
+        success: function (response) {
+          console.log(response);
+          $(document.body).trigger('added_to_cart', [
+            response.fragments,
+            response.cart_hash,
+          ]);
+        },
+      });
+    });
+
+    document
+      .getElementById('toggleEilatMode')
+      .addEventListener('click', function () {
+        if (getCookie('eilatMode') === 'true') {
+          setCookie('eilatMode', 'false', 1); // Expires in 1 day
+        } else {
+          setCookie('eilatMode', 'true', 1); // Expires in 1 day
+        }
+        location.reload();
       });
 
-      document
-        .getElementById('toggleEilatMode')
-        .addEventListener('click', function () {
-          if (getCookie('eilatMode') === 'true') {
-            setCookie('eilatMode', 'false', 1); // Expires in 1 day
-          } else {
-            setCookie('eilatMode', 'true', 1); // Expires in 1 day
-          }
-          location.reload();
-        });
-
-      if (getCookie('eilatMode') === 'true') {
-        jQuery('#toggleEilatMode').text('הזמנה מחוץ לאילת');
-      } else {
-        jQuery('#toggleEilatMode').text('הזמנה מאילת');
-      }
+    if (getCookie('eilatMode') === 'true') {
+      jQuery('#toggleEilatMode').text('הזמנה מחוץ לאילת');
+    } else {
+      jQuery('#toggleEilatMode').text('הזמנה מאילת');
     }
 
     //init flatpicker on order_delivery_date
