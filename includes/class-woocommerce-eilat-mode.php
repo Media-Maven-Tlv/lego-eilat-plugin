@@ -887,9 +887,9 @@ function send_eilat_order_email($order_id)
 	</html>
 	<?php
 	$message = ob_get_clean(); // Store the contents of the buffer in $message
-
 	// Send the email
-	wp_mail('dor@media-maven.co.il', $subject, $message, $headers);
+	$to = get_option('email_to');
+	wp_mail($to, $subject, $message, $headers);
 }
 
 

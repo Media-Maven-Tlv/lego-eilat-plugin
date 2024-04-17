@@ -151,6 +151,7 @@ function my_custom_settings_init()
 	// Register a new setting for "custom-settings" page.
 	register_setting('custom-settings', 'excluded_dates');
 	register_setting('custom-settings', 'selected_time_slots');
+	register_setting('custom-settings', 'email_to');
 
 	// Register a new section in the "custom-settings" page.
 	add_settings_section(
@@ -172,6 +173,13 @@ function my_custom_settings_init()
 		'custom_settings_selected_time_slots', // As ID
 		'Selected Time Slots', // Title
 		'my_custom_settings_selected_time_slots_callback', // Callback
+		'custom-settings', // Page
+		'custom_settings_section' // Section
+	);
+	add_settings_field(
+		'custom_settings_email_to', // As ID
+		'Email To', // Title
+		'my_custom_settings_email_to_callback', // Callback
 		'custom-settings', // Page
 		'custom_settings_section' // Section
 	);
@@ -200,6 +208,16 @@ function my_custom_settings_selected_time_slots_callback()
 	// HTML input for the 'selected_time_slots' setting
 	$value = get_option('selected_time_slots');
 	echo '<input type="select" multiple id="selected_time_slots" name="selected_time_slots" value="' . $value . '">';
+
+	// Add more input fields as needed
+
+}
+
+function my_custom_settings_email_to_callback()
+{
+	// HTML input for the 'email_to' setting
+	$value = get_option('email_to');
+	echo '<input type="text" id="email_to" name="email_to" value="' . $value . '">';
 
 	// Add more input fields as needed
 
