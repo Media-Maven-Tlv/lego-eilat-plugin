@@ -727,9 +727,9 @@ function process_eilat_order()
 
 	$order->set_payment_method('cod'); // Assuming cash on delivery
 	$order->calculate_totals(false);
-	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
 	$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
 	$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
+	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
 	$order->save();
 
 	$redirect_url = $order->get_checkout_order_received_url();
@@ -1052,11 +1052,11 @@ add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_field
 function save_custom_checkout_fields($order_id)
 {
 	if (isset($_POST['order_delivery_date']) && !empty($_POST['order_delivery_date'])) {
-		update_post_meta($order_id, 'Order Delivery Date', sanitize_text_field($_POST['order_delivery_date']));
+		update_post_meta($order_id, 'order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
 	}
 
 	if (isset($_POST['order_delivery_time']) && !empty($_POST['order_delivery_time'])) {
-		update_post_meta($order_id, 'Order Delivery Time', sanitize_text_field($_POST['order_delivery_time']));
+		update_post_meta($order_id, 'order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
 	}
 }
 add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');

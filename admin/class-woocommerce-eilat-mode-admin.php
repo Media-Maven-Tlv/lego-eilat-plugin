@@ -104,25 +104,40 @@ class Woocommerce_Eilat_Mode_Admin
 		wp_enqueue_script('choices', '//cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/scripts/choices.min.js', array('jquery'), '4.0.13', false);
 		wp_enqueue_style('choices', '//cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css', array(), '4.0.13');
 
+		wp_enqueue_script('fullcalendar', '//cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.js', array('jquery'), '5.10.0', false);
+		wp_enqueue_style('fullcalendar', '//cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.css', array(), '5.10.0');
 
-		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-admin.js', array('jquery', 'flatpickr'), $this->version, false);
+		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-admin.js', array('jquery', 'flatpickr', 'choices', 'fullcalendar'), $this->version, false);
+		wp_localize_script($this->plugin_name, 'calendarData', array(
+			'ajaxurl' => admin_url('admin-ajax.php')
+		));
 	}
 }
 
-function my_custom_settings_page()
+function eilat_settings_page()
 {
+	add_menu_page(
+		'Eilat Settings',
+		'Eilat Settings',
+		'manage_options',
+		'eilat-settings',
+		'eilat_settings_page_html',
+		'dashicons-admin-generic',
+		90
+	);
+	//add sub page for delivery calendar
 	add_submenu_page(
-		'options-general.php',          // Parent slug
-		'Eilat Mode Settings',              // Page title
-		'Eilat Mode Settings',              // Menu title
-		'manage_options',               // Capability
-		'custom-settings',              // Menu slug
-		'my_custom_settings_page_html'  // Callback function
+		'eilat-settings',
+		'Delivery Calendar',
+		'Delivery Calendar',
+		'manage_options',
+		'eilat-delivery-calendar',
+		'eilat_delivery_calendar_page_html'
 	);
 }
-add_action('admin_menu', 'my_custom_settings_page');
+add_action('admin_menu', 'eilat_settings_page');
 
-function my_custom_settings_page_html()
+function eilat_settings_page_html()
 {
 	// Check user capabilities
 	if (!current_user_can('manage_options')) {
@@ -134,8 +149,8 @@ function my_custom_settings_page_html()
 		<h1><?php echo esc_html(get_admin_page_title()); ?></h1>
 		<form action="options.php" method="post">
 			<?php
-			settings_fields('custom-settings');
-			do_settings_sections('custom-settings');
+			settings_fields('eilat-settings');
+			do_settings_sections('eilat-settings');
 			submit_button('Save Changes');
 			?>
 		</form>
@@ -146,54 +161,54 @@ function my_custom_settings_page_html()
 }
 
 
-function my_custom_settings_init()
+function my_eilat_settings_init()
 {
 	// Register a new setting for "custom-settings" page.
-	register_setting('custom-settings', 'excluded_dates');
-	register_setting('custom-settings', 'selected_time_slots');
-	register_setting('custom-settings', 'email_to');
+	register_setting('eilat-settings', 'excluded_dates');
+	register_setting('eilat-settings', 'selected_time_slots');
+	register_setting('eilat-settings', 'email_to');
 
 	// Register a new section in the "custom-settings" page.
 	add_settings_section(
-		'custom_settings_section',
-		'Custom Settings',
-		'my_custom_settings_section_callback',
-		'custom-settings'
+		'eilat_settings_section',
+		'Eilat Settings',
+		'my_eilat_settings_section_callback',
+		'eilat-settings'
 	);
 
 	// Register a new field in the "custom_settings_section" section, inside the "custom-settings" page.
 	add_settings_field(
-		'custom_settings_excluded_dates', // As ID
+		'eilat_settings_excluded_dates', // As ID
 		'Excluded Dates', // Title
-		'my_custom_settings_excluded_dates_callback', // Callback
-		'custom-settings', // Page
-		'custom_settings_section' // Section
+		'my_eilat_settings_excluded_dates_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
 	);
 	add_settings_field(
-		'custom_settings_selected_time_slots', // As ID
+		'eilat_settings_selected_time_slots', // As ID
 		'Selected Time Slots', // Title
-		'my_custom_settings_selected_time_slots_callback', // Callback
-		'custom-settings', // Page
-		'custom_settings_section' // Section
+		'my_eilat_settings_selected_time_slots_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
 	);
 	add_settings_field(
-		'custom_settings_email_to', // As ID
+		'eilat_settings_email_to', // As ID
 		'Email To', // Title
-		'my_custom_settings_email_to_callback', // Callback
-		'custom-settings', // Page
-		'custom_settings_section' // Section
+		'my_eilat_settings_email_to_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
 	);
 
 	// Repeat add_settings_field() for other settings as needed.
 }
-add_action('admin_init', 'my_custom_settings_init');
+add_action('admin_init', 'my_eilat_settings_init');
 
-function my_custom_settings_section_callback()
+function my_eilat_settings_section_callback()
 {
-	echo '<p>Custom settings for your plugin.</p>';
+	echo '<p>Eilat settings for your plugin.</p>';
 }
 
-function my_custom_settings_excluded_dates_callback()
+function my_eilat_settings_excluded_dates_callback()
 {
 	// HTML input for the 'excluded_dates' setting
 	$value = get_option('excluded_dates');
@@ -203,7 +218,7 @@ function my_custom_settings_excluded_dates_callback()
 
 }
 
-function my_custom_settings_selected_time_slots_callback()
+function my_eilat_settings_selected_time_slots_callback()
 {
 	// HTML input for the 'selected_time_slots' setting
 	$value = get_option('selected_time_slots');
@@ -213,7 +228,7 @@ function my_custom_settings_selected_time_slots_callback()
 
 }
 
-function my_custom_settings_email_to_callback()
+function my_eilat_settings_email_to_callback()
 {
 	// HTML input for the 'email_to' setting
 	$value = get_option('email_to');
@@ -222,3 +237,122 @@ function my_custom_settings_email_to_callback()
 	// Add more input fields as needed
 
 }
+
+
+function eilat_delivery_calendar_page_html()
+{
+	// Check user capabilities
+	if (!current_user_can('manage_options')) {
+		return;
+	}
+
+?>
+	<div class="wrap">
+		<h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+		<form action="options.php" method="post">
+			<?php
+			settings_fields('eilat-delivery-calendar');
+			do_settings_sections('eilat-delivery-calendar');
+			// submit_button('Save Changes');
+			?>
+		</form>
+	</div>
+<?php
+
+	// HTML form for settings page will go here
+}
+
+function my_eilat_delivery_calendar_init()
+{
+	// Register a new setting for "custom-settings" page.
+	register_setting('eilat-delivery-calendar', 'delivery_calendar');
+
+	// Register a new section in the "custom-settings" page.
+	add_settings_section(
+		'eilat_delivery_calendar_section',
+		'Delivery Calendar',
+		'my_eilat_delivery_calendar_section_callback',
+		'eilat-delivery-calendar'
+	);
+
+	// Register a new field in the "custom_settings_section" section, inside the "custom-settings" page.
+	add_settings_field(
+		'eilat_delivery_calendar', // As ID
+		'Delivery Calendar', // Title
+		'my_eilat_delivery_calendar_callback', // Callback
+		'eilat-delivery-calendar', // Page
+		'eilat_delivery_calendar_section' // Section
+	);
+
+	// Repeat add_settings_field() for other settings as needed.
+}
+add_action('admin_init', 'my_eilat_delivery_calendar_init');
+
+function my_eilat_delivery_calendar_section_callback()
+{
+	echo '<p>Delivery Calendar settings for your plugin.</p>';
+}
+
+function my_eilat_delivery_calendar_callback()
+{
+	// HTML input for the 'delivery_calendar' setting
+	echo '<div class="wrap">';
+	echo '<div id="calendar"></div>';  // Calendar container
+	echo '</div>';
+
+	// Add more input fields as needed
+
+}
+
+function load_eilat_orders_for_calendar()
+{
+
+	$args = array(
+		'status'       => 'eilat-pickup',
+		'return'       => 'ids',
+		'meta_key'     => 'order_delivery_date', // Assuming this meta key is set correctly
+		'orderby'      => 'meta_value',
+		'order'        => 'ASC',
+		'date_query'   => array(
+			array(
+				'year'  => current_time('Y'),
+				'month' => current_time('m'),
+			),
+		),
+	);
+	$orders = wc_get_orders($args);
+	$events = array();
+
+	foreach ($orders as $order_id) {
+		$order = wc_get_order($order_id);
+		$delivery_date = get_post_meta($order_id, 'order_delivery_date', true);
+		$delivery_time = get_post_meta($order_id, 'order_delivery_time', true);
+		$delivery_date = strtr($delivery_date, '/', '-');
+		$delivery_date = date('Y-m-d', strtotime($delivery_date));
+
+		list($start_time, $end_time) = explode(' - ', $delivery_time);
+		$start_datetime = date('Y-m-d H:i:s', strtotime("$delivery_date $start_time"));
+		$end_datetime = date('Y-m-d H:i:s', strtotime("$delivery_date $end_time"));
+
+		$customer_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
+		$total = $order->get_total();
+		$status = $order->get_status();
+
+		$events[] = array(
+			'title' => sprintf('Order #%s', $order_id),
+			'start' => $start_datetime,
+			'end'   => $end_datetime,
+			'url'   => admin_url('post.php?post=' . $order_id . '&action=edit'),
+			'allDay' => false, // This is important to show time in the calendar
+			'extendedProps' => array(
+				'customerName' => $customer_name,
+				'total' => $total,
+				'status' => $status,
+				'email' => $order->get_billing_email(),
+			)
+		);
+	}
+
+	wp_send_json($events);
+}
+add_action('wp_ajax_load_eilat_orders', 'load_eilat_orders_for_calendar');

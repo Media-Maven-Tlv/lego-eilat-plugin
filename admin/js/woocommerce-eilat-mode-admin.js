@@ -2,6 +2,38 @@
   'use strict';
 
   $(document).ready(function () {
+    console.log(calendarData.ajaxurl);
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+
+      events: function (fetchInfo, successCallback, failureCallback) {
+        jQuery.ajax({
+          url: calendarData.ajaxurl,
+          type: 'POST',
+          data: {
+            action: 'load_eilat_orders',
+          },
+          success: function (response) {
+            successCallback(response);
+          },
+          error: function () {
+            failureCallback();
+          },
+        });
+      },
+
+      // eventClick: function (info) {
+      //   alert('Event: ' + info.event.title);
+      //   alert('Coordinates: ' + info.jsEvent.pageX + ',' + info.jsEvent.pageY);
+      //   alert('View: ' + info.view.type);
+
+      //   // change the border color just for fun
+      //   info.el.style.borderColor = 'red';
+      // },
+    });
+    calendar.render();
+
     $('#excluded_dates').flatpickr({
       locale: 'he',
       mode: 'multiple',
