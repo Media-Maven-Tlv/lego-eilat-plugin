@@ -16,6 +16,8 @@ Here is a short description of the plugin.  This should be no more than 150 char
 == Screenshots ==
 
 == Changelog ==
+= 1.4 =
+* Add FullCalendar to the plugin to show the orders in a calendar view in the admin dashboard *
 
 == Upgrade Notice ==
 
