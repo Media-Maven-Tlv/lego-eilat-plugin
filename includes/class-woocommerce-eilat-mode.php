@@ -685,8 +685,8 @@ function process_eilat_order()
 		'address_2'  => $order_data['billing_address_2'],
 		'city'       => $order_data['billing_city'],
 		'state'      => $order_data['billing_state'],
-		// 'pickup_date_field' => $order_data['h_deliverydate_0'],
-		// 'pickup_time_field' => $order_data['orddd_time_slot_0'],
+		'pickup_date_field' => $order_data['h_deliverydate_0'],
+		'pickup_time_field' => $order_data['orddd_time_slot_0'],
 	];
 
 	if (get_option('delivery_date_status') == 'on') {
@@ -701,7 +701,7 @@ function process_eilat_order()
 	}
 
 	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone'];
+	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'pickup_date_field', 'pickup_time_field'];
 	if (get_option('delivery_date_status') == 'on') {
 		$required_fields[] = 'order_delivery_date';
 		$required_fields[] = 'order_delivery_time';

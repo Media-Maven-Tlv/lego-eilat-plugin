@@ -207,6 +207,7 @@
           $('button#eilat_place_order').attr('type', 'button');
           var status = false;
           $('#eilat_place_order').on('click', function (e) {
+            $('#eilat_place_order').prop('disabled', true);
             if (status) {
               return;
             }
@@ -244,6 +245,7 @@
                       text: error,
                     });
                   }
+                  $('#eilat_place_order').prop('disabled', false);
                 },
                 error: function () {
                   Swal.fire({
@@ -251,6 +253,7 @@
                     title: 'אירעה שגיאה',
                     text: 'אנא נסה שוב מאוחר יותר',
                   });
+                  $('#eilat_place_order').prop('disabled', false);
                 },
               });
             } else {
@@ -259,6 +262,7 @@
                 title: 'שדות חובה חסרים',
                 text: 'אנא מלא את כל השדות החובה',
               });
+              $('#eilat_place_order').prop('disabled', false);
             }
           });
         }
