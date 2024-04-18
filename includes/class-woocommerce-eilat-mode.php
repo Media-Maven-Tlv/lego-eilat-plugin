@@ -687,9 +687,12 @@ function process_eilat_order()
 		'state'      => $order_data['billing_state'],
 		// 'pickup_date_field' => $order_data['h_deliverydate_0'],
 		// 'pickup_time_field' => $order_data['orddd_time_slot_0'],
-		'order_delivery_date' => $order_data['order_delivery_date'],
-		'order_delivery_time' => $order_data['order_delivery_time'],
 	];
+
+	if (get_option('delivery_date_status') == 'on') {
+		$billing_address['order_delivery_date'] = $order_data['order_delivery_date'];
+		$billing_address['order_delivery_time'] = $order_data['order_delivery_time'];
+	}
 
 	//check if terms_field is checked
 	if (!isset($order_data['terms'])) {
@@ -698,7 +701,11 @@ function process_eilat_order()
 	}
 
 	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'order_delivery_date', 'order_delivery_time'];
+	$required_fields = ['first_name', 'last_name', 'email', 'phone'];
+	if (get_option('delivery_date_status') == 'on') {
+		$required_fields[] = 'order_delivery_date';
+		$required_fields[] = 'order_delivery_time';
+	}
 	$empty_fields = [];
 	foreach ($required_fields as $field) {
 		if (empty($billing_address[$field])) {
@@ -727,8 +734,10 @@ function process_eilat_order()
 
 	$order->set_payment_method('cod'); // Assuming cash on delivery
 	$order->calculate_totals(false);
-	$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
-	$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
+	if (get_option('delivery_date_status') == 'on') {
+		$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
+		$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
+	}
 	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
 	$order->save();
 
@@ -1047,8 +1056,6 @@ function add_custom_checkout_fields_between_shipping_and_payment($checkout)
 	echo '</div>';
 }
 
-add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_fields_between_shipping_and_payment');
-
 function save_custom_checkout_fields($order_id)
 {
 	if (isset($_POST['order_delivery_date']) && !empty($_POST['order_delivery_date'])) {
@@ -1059,10 +1066,6 @@ function save_custom_checkout_fields($order_id)
 		update_post_meta($order_id, 'order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
 	}
 }
-add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');
-
-
-
 
 function display_editable_custom_fields_in_order_admin($order)
 {
@@ -1080,7 +1083,6 @@ function display_editable_custom_fields_in_order_admin($order)
 	echo '<input type="text" id="order_delivery_time" name="order_delivery_time" value="' . esc_attr($delivery_time) . '">';
 	echo '</div>';
 }
-add_action('woocommerce_admin_order_data_after_billing_address', 'display_editable_custom_fields_in_order_admin');
 
 function save_custom_fields_on_admin_order_save($post_id, $post)
 {
@@ -1102,4 +1104,10 @@ function save_custom_fields_on_admin_order_save($post_id, $post)
 		update_post_meta($post_id, 'order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
 	}
 }
-add_action('woocommerce_process_shop_order_meta', 'save_custom_fields_on_admin_order_save', 10, 2);
+
+if (get_option('delivery_date_status') == 'on') {
+	add_action('woocommerce_process_shop_order_meta', 'save_custom_fields_on_admin_order_save', 10, 2);
+	add_action('woocommerce_admin_order_data_after_billing_address', 'display_editable_custom_fields_in_order_admin');
+	add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');
+	add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_fields_between_shipping_and_payment');
+}

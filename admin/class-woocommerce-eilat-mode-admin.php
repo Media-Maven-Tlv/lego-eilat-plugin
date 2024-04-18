@@ -167,6 +167,7 @@ function my_eilat_settings_init()
 	register_setting('eilat-settings', 'excluded_dates');
 	register_setting('eilat-settings', 'selected_time_slots');
 	register_setting('eilat-settings', 'email_to');
+	register_setting('eilat-settings', 'delivery_date_status');
 
 	// Register a new section in the "custom-settings" page.
 	add_settings_section(
@@ -195,6 +196,13 @@ function my_eilat_settings_init()
 		'eilat_settings_email_to', // As ID
 		'Email To', // Title
 		'my_eilat_settings_email_to_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
+	);
+	add_settings_field(
+		'eilat_settings_delivery_date_status', // As ID
+		'Delivery Date Status', // Title
+		'my_eilat_settings_delivery_date_status_callback', // Callback
 		'eilat-settings', // Page
 		'eilat_settings_section' // Section
 	);
@@ -238,6 +246,16 @@ function my_eilat_settings_email_to_callback()
 
 }
 
+function my_eilat_settings_delivery_date_status_callback()
+{
+	// HTML input for the 'delivery_date_status' setting
+	$value = get_option('delivery_date_status');
+	echo '<input type="checkbox" id="delivery_date_status" name="delivery_date_status" ' . checked($value, 'on', false) . '>';
+
+	// Add more input fields as needed
+
+}
+
 
 function eilat_delivery_calendar_page_html()
 {
@@ -253,7 +271,7 @@ function eilat_delivery_calendar_page_html()
 			<?php
 			settings_fields('eilat-delivery-calendar');
 			do_settings_sections('eilat-delivery-calendar');
-			// submit_button('Save Changes');
+			submit_button('Save Changes');
 			?>
 		</form>
 	</div>
