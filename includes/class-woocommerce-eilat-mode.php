@@ -687,7 +687,7 @@ function process_eilat_order()
 		'state'      => $order_data['billing_state'],
 		// 'h_deliverydate_0' => $order_data['h_deliverydate_0'],
 		'e_deliverydate_0' => $order_data['e_deliverydate_0'],
-		// 'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
+		'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
 		'_orddd_timestamp' => $order_data['_orddd_timestamp'],
 	];
 
@@ -703,7 +703,7 @@ function process_eilat_order()
 	}
 
 	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'e_deliverydate_0', '_orddd_timestamp'];
+	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'e_deliverydate_0', 'orddd_time_slot_0'];
 	if (get_option('delivery_date_status') == 'on') {
 		$required_fields[] = 'order_delivery_date';
 		$required_fields[] = 'order_delivery_time';
