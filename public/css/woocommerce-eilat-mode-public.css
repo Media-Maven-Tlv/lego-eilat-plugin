@@ -9,3 +9,31 @@
 p#coderockz_woo_delivery_pickup_date_datepicker_field label {
   display: none;
 }
+
+body.eilat-mode .xoo-wsc-header::after {
+  content: 'הנכם נמצאים בתהליך הזמנה מסניף אילת';
+  display: block;
+  clear: both;
+  width: 100%;
+  background-color: green;
+  text-align: center;
+  color: white;
+}
+
+body.eilat-mode span.xoo-wsc-footer-txt {
+  display: none;
+}
+
+.price_wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+p.eilat_price {
+  margin-bottom: 0;
+  border-right: 1px solid;
+  padding-right: 10px;
+}

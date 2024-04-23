@@ -432,7 +432,7 @@ function save_eilat_stock_custom_field($product)
 }
 
 // Display the custom field value on the product page
-add_action('woocommerce_before_add_to_cart_form', 'display_eilat_stock_on_product_page');
+// add_action('woocommerce_before_add_to_cart_form', 'display_eilat_stock_on_product_page');
 function display_eilat_stock_on_product_page()
 {
 	global $product;
@@ -497,7 +497,7 @@ function eilat_add_to_cart_button($product)
                     data-product_sku="$sku" data-quantity="1"
                     class="eilat-button btn btn-danger col-10 fw-bold pb-3 pe-5 ps-5 pt-3 rounded rounded-1 text-md-center text-start wp-block-button__link"
                 >
-                    רכישה מאילת
+                    הזמנה מאילת
                 </button>
          HTML;
 }
@@ -685,8 +685,9 @@ function process_eilat_order()
 		'address_2'  => $order_data['billing_address_2'],
 		'city'       => $order_data['billing_city'],
 		'state'      => $order_data['billing_state'],
-		'pickup_date_field' => $order_data['h_deliverydate_0'],
-		'pickup_time_field' => $order_data['orddd_time_slot_0'],
+		'h_deliverydate_0' => $order_data['h_deliverydate_0'],
+		'e_deliverydate_0' => $order_data['e_deliverydate_0'],
+		'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
 	];
 
 	if (get_option('delivery_date_status') == 'on') {
@@ -701,7 +702,7 @@ function process_eilat_order()
 	}
 
 	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'pickup_date_field', 'pickup_time_field'];
+	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'h_deliverydate_0', 'e_deliverydate_0', 'orddd_time_slot_0'];
 	if (get_option('delivery_date_status') == 'on') {
 		$required_fields[] = 'order_delivery_date';
 		$required_fields[] = 'order_delivery_time';
@@ -716,7 +717,6 @@ function process_eilat_order()
 		wp_send_json_error(['message' => 'יש למלא את כל השדות הנדרשים.', 'error' => $empty_fields]);
 		return WC_AJAX::get_refreshed_fragments();
 	}
-
 	$order = wc_create_order();
 
 	$cart_items = WC()->cart->get_cart();
@@ -738,6 +738,9 @@ function process_eilat_order()
 		$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
 		$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
 	}
+	$order->update_meta_data('h_deliverydate_0', $order_data['h_deliverydate_0']);
+	$order->update_meta_data('e_deliverydate_0', $order_data['e_deliverydate_0']);
+	$order->update_meta_data('orddd_time_slot_0', $order_data['orddd_time_slot_0']);
 	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
 	$order->save();
 
@@ -996,13 +999,18 @@ function add_eilat_banner()
 	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') : ?>
 		<div class="eilat-banner d-flex justify-content-center align-items-center p-2 gap-3" style="
     position: fixed;
-    z-index: 99999999999;
+    z-index: 9;
     left: 0;
     bottom: 0;
     width: 100%;
     background-color: green;
 ">
-			<p class="text-center text-light mb-0">מצב הזמנה מאילת</p>
+			<p class="text-center text-light mb-0">
+				הנכם נמצאים בתהליך הזמנה מסניף אילת
+			</p>
+			<button class="btn btn-danger text-light btn-sm" id="exit-eilat-mode">
+				ליציאה מתהליך זה
+			</button>
 		</div>
 <?php endif;
 }
@@ -1111,3 +1119,27 @@ if (get_option('delivery_date_status') == 'on') {
 	add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');
 	add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_fields_between_shipping_and_payment');
 }
+
+
+function my_custom_plugin_override_template($template, $template_name, $template_path)
+{
+	$plugin_path = untrailingslashit(plugin_dir_path(__FILE__)) . '/woocommerce/';
+
+	// Check if the template is 'simple.php' and the template is within the 'templates' directory.
+	if ('single-product/add-to-cart/simple.php' === $template_name) {
+		$override_path = $plugin_path . $template_name;
+		if (file_exists($override_path)) {
+			return $override_path;
+		}
+	}
+	if ('single-product/price.php' === $template_name) {
+		$override_path = $plugin_path . $template_name;
+		if (file_exists($override_path)) {
+			return $override_path;
+		}
+	}
+
+	// Return default template
+	return $template;
+}
+add_filter('woocommerce_locate_template', 'my_custom_plugin_override_template', 10, 3);

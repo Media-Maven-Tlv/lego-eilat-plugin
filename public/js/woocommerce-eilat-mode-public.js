@@ -105,7 +105,7 @@
                     },
                   });
                 } else {
-                  jQuery('#shipping_method_0').val('local_pickup:13').change();
+                  jQuery('#shipping_method_0').val('local_pickup:15').change();
                   setCookie('eilatMode', 'true', 1); // Expires in 1 day
                   $('#billing_city').val('אילת');
                   $('#billing_city').attr('disabled', true);
@@ -133,7 +133,7 @@
         toggle_delivery_details();
 
         // Toggle Eilat mode based on shipping method selection
-        if (selectedShippingMethod === 'local_pickup:13') {
+        if (selectedShippingMethod === 'local_pickup:15') {
           setCookie('eilatMode', 'true', 1); // Expires in 1 day
           $('#billing_city').val('אילת');
           $('#billing_city').attr('disabled', true);
@@ -169,7 +169,7 @@
       // Set payment method to Cash on Delivery if Eilat mode is active
       if (getCookie('eilatMode') === 'true') {
         $('#payment_method_cod').prop('checked', true).change();
-        $('select#shipping_method_0').val('local_pickup:13').change();
+        $('select#shipping_method_0').val('local_pickup:15').change();
         $('#billing_city').val('אילת');
         $('#billing_state').val('IL2600').change();
         toggleBillingFields(false);
@@ -206,6 +206,7 @@
           $('button#place_order').attr('id', 'eilat_place_order');
           $('button#eilat_place_order').attr('type', 'button');
           var status = false;
+
           $('#eilat_place_order').on('click', function (e) {
             $('#eilat_place_order').prop('disabled', true);
             if (status) {
@@ -272,14 +273,14 @@
       function toggle_delivery_details() {
         var chosen_shipping_method = $('#shipping_method_0').val();
         var display =
-          chosen_shipping_method == 'local_pickup:13' ? 'block' : 'none';
+          chosen_shipping_method == 'local_pickup:15' ? 'block' : 'none';
 
         $('#custom_delivery_details').css('display', display);
 
         // Make fields required if local pickup is selected
         $('#order_delivery_date, #order_delivery_time').prop(
           'required',
-          chosen_shipping_method == 'local_pickup:13'
+          chosen_shipping_method == 'local_pickup:15'
         );
       }
 
@@ -332,21 +333,35 @@
       });
     });
 
-    document
-      .getElementById('toggleEilatMode')
-      .addEventListener('click', function () {
-        if (getCookie('eilatMode') === 'true') {
-          setCookie('eilatMode', 'false', 1); // Expires in 1 day
-        } else {
-          setCookie('eilatMode', 'true', 1); // Expires in 1 day
-        }
-        location.reload();
-      });
+    if ($('body').hasClass('single-product')) {
+      document
+        .getElementById('toggleEilatMode')
+        .addEventListener('click', function () {
+          if (getCookie('eilatMode') === 'true') {
+            setCookie('eilatMode', 'false', 1); // Expires in 1 day
+          } else {
+            setCookie('eilatMode', 'true', 1); // Expires in 1 day
+          }
+          location.reload();
+        });
+
+      if (getCookie('eilatMode') === 'true') {
+        jQuery('#toggleEilatMode').text('הזמנה מחוץ לאילת');
+      } else {
+        jQuery('#toggleEilatMode').text('הזמנה מאילת');
+      }
+    }
+
+    $('#exit-eilat-mode').click(function (e) {
+      e.preventDefault();
+      setCookie('eilatMode', 'false', 1); // Expires in 1 day
+      location.reload();
+    });
 
     if (getCookie('eilatMode') === 'true') {
-      jQuery('#toggleEilatMode').text('הזמנה מחוץ לאילת');
+      $('body').addClass('eilat-mode');
     } else {
-      jQuery('#toggleEilatMode').text('הזמנה מאילת');
+      $('body').removeClass('eilat-mode');
     }
 
     //init flatpicker on order_delivery_date
