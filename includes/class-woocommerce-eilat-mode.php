@@ -685,9 +685,10 @@ function process_eilat_order()
 		'address_2'  => $order_data['billing_address_2'],
 		'city'       => $order_data['billing_city'],
 		'state'      => $order_data['billing_state'],
-		'h_deliverydate_0' => $order_data['h_deliverydate_0'],
+		// 'h_deliverydate_0' => $order_data['h_deliverydate_0'],
 		'e_deliverydate_0' => $order_data['e_deliverydate_0'],
-		'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
+		// 'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
+		'_orddd_timestamp' => $order_data['_orddd_timestamp'],
 	];
 
 	if (get_option('delivery_date_status') == 'on') {
@@ -702,7 +703,7 @@ function process_eilat_order()
 	}
 
 	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'h_deliverydate_0', 'e_deliverydate_0', 'orddd_time_slot_0'];
+	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'e_deliverydate_0', '_orddd_timestamp'];
 	if (get_option('delivery_date_status') == 'on') {
 		$required_fields[] = 'order_delivery_date';
 		$required_fields[] = 'order_delivery_time';
@@ -911,7 +912,8 @@ function custom_thankyou_page($order_id)
 {
 	$order = wc_get_order($order_id);
 	if ($order->get_status() === 'eilat-pickup') {
-		echo '<h2>הזמנתך נקלטה בהצלחה וממתינה לאיסוף באילת</h2>';
+		echo '<h2>הזמנתך נקלטה בהצלחה והועברה לטיפול</h2>';
+		echo '<h2>יש להמתין למסרון המודיע על כך שההזמנה מוכנה לאיסוף בסניף</h2>';
 	}
 }
 

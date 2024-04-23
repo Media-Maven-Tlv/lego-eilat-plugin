@@ -131,7 +131,6 @@
       $(document.body).on('change', 'select#shipping_method_0', function () {
         var selectedShippingMethod = $(this).val();
         toggle_delivery_details();
-
         // Toggle Eilat mode based on shipping method selection
         if (selectedShippingMethod === 'local_pickup:15') {
           setCookie('eilatMode', 'true', 1); // Expires in 1 day
