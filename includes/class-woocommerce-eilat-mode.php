@@ -739,7 +739,8 @@ function process_eilat_order()
 		$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
 		$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
 	}
-	$order->update_meta_data('e_deliverydate_0', $order_data['e_deliverydate_0']);
+	$e_deliverydate_0 = date('d/m/Y', strtotime($order_data['e_deliverydate_0']));
+	$order->update_meta_data('e_deliverydate_0', $e_deliverydate_0);
 	$order->update_meta_data('_orddd_timestamp', strtotime($order_data['orddd_time_slot_0']));
 	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
 	$order->save();
