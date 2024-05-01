@@ -94,3 +94,9 @@ p.eilat_price {
   align-items: center;
   gap: 10px;
 }
+
+.delivery_information_field::before {
+  content: 'בחירת מועד איסוף';
+  font-size: 1.75rem;
+  font-weight: 500;
+}
