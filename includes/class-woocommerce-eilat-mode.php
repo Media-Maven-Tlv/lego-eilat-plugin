@@ -490,16 +490,25 @@ function eilat_add_to_cart_button($product)
 	global $product;
 	$product_id = $product->get_id();
 	$sku = $product->get_sku();
+	if ($product->get_meta('eilat_stock') == 0) {
+		$disabled = 'disabled';
+	} else {
+		$disabled = '';
+	}
 	echo <<<HTML
                 <button
                     type="button"
                     data-product_id="$product_id"
                     data-product_sku="$sku" data-quantity="1"
-                    class="eilat-button btn btn-danger col-10 fw-bold pb-3 pe-5 ps-5 pt-3 rounded rounded-1 text-md-center text-start wp-block-button__link"
+                    class="eilat-button btn btn-danger col-10 fw-bold pb-3 pe-5 ps-5 pt-3 rounded rounded-1 text-md-center text-start wp-block-button__link" $disabled
                 >
                     הזמנה מאילת
                 </button>
          HTML;
+
+	if ($product->get_meta('eilat_stock') == 0) {
+		echo '<div class="text-danger w-100 d-block">מוצר זה אינו זמין להזמנה מסניף אילת</div>';
+	}
 }
 
 // check if product is in eilat stock function
@@ -715,8 +724,22 @@ function process_eilat_order()
 		}
 	}
 	if (!empty($empty_fields)) {
-		wp_send_json_error(['message' => 'יש למלא את כל השדות הנדרשים.', 'error' => $empty_fields]);
-		return WC_AJAX::get_refreshed_fragments();
+		$field_names = [
+			'first_name' => 'שם פרטי',
+			'last_name' => 'שם משפחה',
+			'email' => 'אימייל',
+			'phone' => 'טלפון',
+			'e_deliverydate_0' => 'תאריך איסוף',
+			'orddd_time_slot_0' => 'שעת איסוף',
+			'order_delivery_date' => 'תאריך איסוף',
+			'order_delivery_time' => 'שעת איסוף'
+		];
+		$missing_fields_list = array_map(function ($field) use ($field_names) {
+			return $field_names[$field] ?? $field;  // This will use the custom field name if available, or default to the key
+		}, $empty_fields);
+
+		$error_message = 'יש למלא את השדות הבאים:';
+		wp_send_json_error(['message' => $error_message, 'error' =>  implode(', ', $missing_fields_list)]);		// return WC_AJAX::get_refreshed_fragments();
 	}
 	$order = wc_create_order();
 

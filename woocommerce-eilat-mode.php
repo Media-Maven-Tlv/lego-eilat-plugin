@@ -16,7 +16,7 @@
  * Plugin Name:       Woocommerce Eilat Mode
  * Plugin URI:        https://media-maven.co.il
  * Description:       Adds custom functionalities for handling Eilat mode, including a custom order status, product stock validation, checkout modifications, and applying zero tax in Eilat mode.
- * Version:           1.7.6
+ * Version:           1.7.7
  * Author:            Dor Meljon
  * Author URI:        https://media-maven.co.il/
  * License:           GPL-2.0+
