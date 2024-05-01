@@ -141,6 +141,9 @@
             disabled: true,
           });
           toggleBillingFields(false);
+          jQuery('.ordd-checkout-fields').append(
+            '<div class="delivery_information_title">בחירת מועד איסוף</div>'
+          );
           // toggleCheckoutButton(false);
           // $('.orddd-checkout-fields').show();
           checkStock(true);
@@ -155,6 +158,7 @@
             disabled: false,
           });
           toggleBillingFields(true);
+          jQuery('.delivery_information_title').remove();
           // toggleCheckoutButton(true);
           // $('.orddd-checkout-fields').hide();
           checkStock(false);
