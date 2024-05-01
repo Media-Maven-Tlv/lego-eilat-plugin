@@ -99,3 +99,7 @@ p.eilat_price {
   font-size: 1.75rem;
   font-weight: 500;
 }
+
+.eilat-product {
+  display: none;
+}
