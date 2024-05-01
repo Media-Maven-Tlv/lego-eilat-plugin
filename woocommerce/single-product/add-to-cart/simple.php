@@ -60,6 +60,12 @@ if ($product->is_in_stock()) :
 <?php endif; ?>
 <?php if ($product->get_meta('eilat_stock') > 0) : ?>
   <div class="mb-4">
-    <button id="toggleEilatMode" class="btn btn-outline-success fw-bold pb-3 pe-5 ps-5 pt-3 rounded rounded-1 text-md-center text-start text-dark text-success">הזמנה מחוץ לאילת</button>
+    <a href="#"><span class="fa fa-share" data-toggle="tooltip" data-original-title="Share"></span></a>
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" role="switch" id="toggleEilatMode" name="toggleEilatMode" aria-checked="<?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'true' : 'false'; ?>" <?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'checked' : ''; ?>>
+      <label class="form-check-label" for="toggleEilatMode">
+        הזמנה מחוץ לאילת
+      </label>
+    </div>
   </div>
 <?php endif; ?>

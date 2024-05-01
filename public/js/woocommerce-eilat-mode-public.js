@@ -345,9 +345,9 @@
         });
 
       if (getCookie('eilatMode') === 'true') {
-        jQuery('#toggleEilatMode').text('הזמנה מחוץ לאילת');
+        jQuery('#toggleEilatModeLabel').text('הזמנה מחוץ לאילת');
       } else {
-        jQuery('#toggleEilatMode').text('הזמנה מאילת');
+        jQuery('#toggleEilatModeLabel').text('הזמנה מאילת');
       }
     }
 

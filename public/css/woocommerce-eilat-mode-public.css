@@ -37,3 +37,60 @@ p.eilat_price {
   border-right: 1px solid;
   padding-right: 10px;
 }
+
+.form-switch {
+  padding-left: 0;
+  padding-right: 2.5em;
+  margin-bottom: 0 !important;
+}
+
+.form-switch .form-check-input {
+  margin-left: unset;
+  margin-right: -2.5em;
+}
+
+.eilat_tooltip {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.eilat_tooltip .eilat_tooltip_text {
+  visibility: hidden;
+  width: 120px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -60px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 12px;
+}
+
+.eilat_tooltip .eilat_tooltip_text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #555 transparent transparent transparent;
+}
+
+.eilat_tooltip:hover .eilat_tooltip_text {
+  visibility: visible;
+  opacity: 1;
+}
+
+.eilat_toggle_wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
