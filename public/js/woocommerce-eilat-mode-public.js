@@ -141,7 +141,7 @@
             disabled: true,
           });
           toggleBillingFields(false);
-          jQuery('.ordd-checkout-fields').append(
+          jQuery('.orddd-checkout-fields').append(
             '<div class="delivery_information_title">בחירת מועד איסוף</div>'
           );
           // toggleCheckoutButton(false);
