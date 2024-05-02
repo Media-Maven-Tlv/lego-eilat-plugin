@@ -167,6 +167,7 @@ function my_eilat_settings_init()
 	register_setting('eilat-settings', 'excluded_dates');
 	register_setting('eilat-settings', 'selected_time_slots');
 	register_setting('eilat-settings', 'email_to');
+	register_setting('eilat-settings', 'eilat_pickup_method');
 	register_setting('eilat-settings', 'delivery_date_status');
 
 	// Register a new section in the "custom-settings" page.
@@ -196,6 +197,13 @@ function my_eilat_settings_init()
 		'eilat_settings_email_to', // As ID
 		'Email To', // Title
 		'my_eilat_settings_email_to_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
+	);
+	add_settings_field(
+		'eilat_settings_eilat_pickup_method', // As ID
+		'Eilat Pickup Method', // Title
+		'my_eilat_settings_eilat_pickup_method_callback', // Callback
 		'eilat-settings', // Page
 		'eilat_settings_section' // Section
 	);
@@ -241,6 +249,16 @@ function my_eilat_settings_email_to_callback()
 	// HTML input for the 'email_to' setting
 	$value = get_option('email_to');
 	echo '<input type="text" id="email_to" name="email_to" value="' . $value . '">';
+
+	// Add more input fields as needed
+
+}
+
+function my_eilat_settings_eilat_pickup_method_callback()
+{
+	// HTML input for the 'eilat_pickup_method' setting
+	$value = get_option('eilat_pickup_method');
+	echo '<input type="text" id="eilat_pickup_method" name="eilat_pickup_method" value="' . $value . '">';
 
 	// Add more input fields as needed
 

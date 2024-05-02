@@ -111,6 +111,10 @@ class Woocommerce_Eilat_Mode_Public
 		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public.js', array(
 			'jquery'
 		), $this->version, false);
+
+		$local_pickup = get_option('eilat_pickup_method');
+		wp_localize_script($this->plugin_name, 'local_pickup', $local_pickup);
+
 		// if (is_checkout()) {
 		// 	wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public-checkout.js', array(
 		// 		'jquery'

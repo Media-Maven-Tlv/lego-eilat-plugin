@@ -2,7 +2,8 @@
 // add_action('woocommerce_review_order_before_payment', 'add_eilat_mode_calender');
 function add_eilat_mode_calender()
 {
-  if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] == 'true' || WC()->session->get('chosen_shipping_methods')[0] == 'local_pickup:13') {
+  $local_pickup = get_option('eilat_pickup_method');
+  if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] == 'true' || WC()->session->get('chosen_shipping_methods')[0] == $local_pickup) {
 ?>
     <div class="eilat-mode-calendar">
       <h5><?php _e('בחירת מועד לאיסוף', 'textdomain'); ?></h5>
@@ -43,7 +44,7 @@ function add_eilat_mode_calender()
         });
 
         $('select#shipping_method_0').change(function(e) {
-          if ($(this).val() == 'local_pickup:13') {
+          if ($(this).val() == <?php echo json_encode($local_pickup); ?>) {
             $('.eilat-mode-delivery-date-time').show();
             $('#eilat-mode-date').prop('required', true);
             $('#eilat-mode-time').prop('required', true);
@@ -54,7 +55,7 @@ function add_eilat_mode_calender()
           }
         });
 
-        if ($('select#shipping_method_0').val() == 'local_pickup:13') {
+        if ($('select#shipping_method_0').val() == <?php echo json_encode($local_pickup); ?>) {
           $('.eilat-mode-delivery-date-time').show();
           $('#eilat-mode-date').prop('required', true);
           $('#eilat-mode-time').prop('required', true);
@@ -79,9 +80,9 @@ function add_eilat_mode_calender()
 
 function add_custom_checkout_fields($checkout)
 {
-
+  $local_pickup = get_option('eilat_pickup_method');
   // Condition for showing fields
-  if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] == 'true' || WC()->session->get('chosen_shipping_methods')[0] == 'local_pickup:13') {
+  if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] == 'true' || WC()->session->get('chosen_shipping_methods')[0] == $local_pickup) {
     echo '<div id="custom_checkout_fields"><h3>' . __('Delivery Date and Time') . '</h3>';
 
     // Date field with a data attribute for AJAX URL

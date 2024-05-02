@@ -2,6 +2,7 @@
   'use strict';
 
   $(document).ready(function () {
+    // console.log(local_pickup);
     //if is checkout page
     if ($('body').hasClass('woocommerce-checkout')) {
       // $('#order_delivery_date').flatpickr({
@@ -52,7 +53,7 @@
           '#billing_address_2_field',
           'p#billing_address_3_field',
           '#billing_city_field',
-          // '#billing_state_field',
+          '#billing_state_field',
           '#billing_postcode_field',
           '#billing_country_field',
         ];
@@ -105,7 +106,7 @@
                     },
                   });
                 } else {
-                  jQuery('#shipping_method_0').val('local_pickup:15').change();
+                  jQuery('#shipping_method_0').val(local_pickup).change();
                   setCookie('eilatMode', 'true', 1); // Expires in 1 day
                   $('#billing_city').val('אילת');
                   $('#billing_city').attr('disabled', true);
@@ -132,7 +133,7 @@
         var selectedShippingMethod = $(this).val();
         toggle_delivery_details();
         // Toggle Eilat mode based on shipping method selection
-        if (selectedShippingMethod === 'local_pickup:15') {
+        if (selectedShippingMethod === local_pickup) {
           setCookie('eilatMode', 'true', 1); // Expires in 1 day
           $('#billing_city').val('אילת');
           $('#billing_city').attr('disabled', true);
@@ -153,7 +154,7 @@
           $('#billing_city').val('');
           $('#billing_city').attr('disabled', false);
 
-          // $('#billing_state').val('').change();
+          $('#billing_state').val('').change();
           $('#billing_state').select2({
             disabled: false,
           });
@@ -172,7 +173,7 @@
       // Set payment method to Cash on Delivery if Eilat mode is active
       if (getCookie('eilatMode') === 'true') {
         $('#payment_method_cod').prop('checked', true).change();
-        $('select#shipping_method_0').val('local_pickup:15').change();
+        $('select#shipping_method_0').val(local_pickup).change();
         $('#billing_city').val('אילת');
         $('#billing_state').val('IL2600').change();
         toggleBillingFields(false);
@@ -183,7 +184,7 @@
         $('#payment_method_cod').prop('checked', false).change();
         $('select#shipping_method_0').val('flat_rate:12').change();
         $('#billing_city').val('');
-        // $('#billing_state').val('').change();
+        $('#billing_state').val('').change();
         toggleBillingFields(true);
         // setTimeout(function () {
         //   toggleCheckoutButton(true);
@@ -275,15 +276,14 @@
       // Function to toggle delivery details
       function toggle_delivery_details() {
         var chosen_shipping_method = $('#shipping_method_0').val();
-        var display =
-          chosen_shipping_method == 'local_pickup:15' ? 'block' : 'none';
+        var display = chosen_shipping_method == local_pickup ? 'block' : 'none';
 
         $('#custom_delivery_details').css('display', display);
 
         // Make fields required if local pickup is selected
         $('#order_delivery_date, #order_delivery_time').prop(
           'required',
-          chosen_shipping_method == 'local_pickup:15'
+          chosen_shipping_method == local_pickup
         );
       }
 
