@@ -312,6 +312,12 @@
       return null;
     }
 
+    $('#exit-eilat-mode').click(function (e) {
+      e.preventDefault();
+      setCookie('eilatMode', 'false', 1); // Expires in 1 day
+      location.reload();
+    });
+
     $('.eilat-button').on('click', function (e) {
       e.preventDefault();
       const product_id = $(this).data('product_id');
@@ -355,12 +361,6 @@
         jQuery('#toggleEilatModeLabel').text('הזמנה מאילת');
       }
     }
-
-    $('#exit-eilat-mode').click(function (e) {
-      e.preventDefault();
-      setCookie('eilatMode', 'false', 1); // Expires in 1 day
-      location.reload();
-    });
 
     if (getCookie('eilatMode') === 'true') {
       $('body').addClass('eilat-mode');
