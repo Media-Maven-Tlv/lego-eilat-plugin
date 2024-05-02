@@ -52,7 +52,7 @@
           '#billing_address_2_field',
           'p#billing_address_3_field',
           '#billing_city_field',
-          '#billing_state_field',
+          // '#billing_state_field',
           '#billing_postcode_field',
           '#billing_country_field',
         ];
@@ -153,7 +153,7 @@
           $('#billing_city').val('');
           $('#billing_city').attr('disabled', false);
 
-          $('#billing_state').val('').change();
+          // $('#billing_state').val('').change();
           $('#billing_state').select2({
             disabled: false,
           });
@@ -183,7 +183,7 @@
         $('#payment_method_cod').prop('checked', false).change();
         $('select#shipping_method_0').val('flat_rate:12').change();
         $('#billing_city').val('');
-        $('#billing_state').val('').change();
+        // $('#billing_state').val('').change();
         toggleBillingFields(true);
         // setTimeout(function () {
         //   toggleCheckoutButton(true);

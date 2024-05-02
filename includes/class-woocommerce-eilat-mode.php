@@ -360,7 +360,7 @@ function custom_override_checkout_fields2($fields)
 			'billing_address_2',
 			'billing_address_3',
 			'billing_city',
-			'billing_state',
+			// 'billing_state',
 			'billing_postcode',
 			'billing_country',
 		];
@@ -693,7 +693,8 @@ function process_eilat_order()
 		'address_1'  => $order_data['billing_address_1'],
 		'address_2'  => $order_data['billing_address_2'],
 		'city'       => $order_data['billing_city'],
-		'state'      => $order_data['billing_state'],
+		'state'      => $order_data['billing_city'],
+		// 'state'      => $order_data['billing_state'],
 		// 'h_deliverydate_0' => $order_data['h_deliverydate_0'],
 		'e_deliverydate_0' => $order_data['e_deliverydate_0'],
 		'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
