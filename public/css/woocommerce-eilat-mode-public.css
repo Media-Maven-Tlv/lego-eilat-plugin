@@ -49,8 +49,8 @@ p.eilat_price {
   margin-right: -2.5em;
 }
 .form-check-input:checked {
-  background-color: #e11f26;
-  border-color: #e11f26;
+  background-color: #e11f26 !important;
+  border-color: #e11f26 !important;
 }
 .eilat_tooltip {
   position: relative;
