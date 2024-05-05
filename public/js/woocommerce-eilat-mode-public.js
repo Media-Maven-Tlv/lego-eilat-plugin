@@ -2,6 +2,56 @@
   'use strict';
 
   $(document).ready(function () {
+    function setCookie(name, value, days) {
+      var expires = '';
+      if (days) {
+        var date = new Date();
+        date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+        expires = '; expires=' + date.toUTCString();
+      }
+      document.cookie = name + '=' + (value || '') + expires + '; path=/';
+    }
+
+    function getCookie(name) {
+      var nameEQ = name + '=';
+      var ca = document.cookie.split(';');
+      for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+      }
+      return null;
+    }
+
+    function customValidationPasses() {
+      var requiredFields = $('form.checkout').find(
+        'input[required], select[required]'
+      );
+      var isValid = true;
+      requiredFields.each(function () {
+        if ($(this).val() === '') {
+          isValid = false;
+        }
+      });
+      return isValid;
+    }
+
+    $('#exit-eilat-mode').click(function (e) {
+      e.preventDefault();
+      setCookie('eilatMode', 'false', 1); // Expires in 1 day
+      location.reload();
+    });
+
+    $('#toggleEilatMode').on('click', function (e) {
+      e.preventDefault();
+      if (getCookie('eilatMode') === 'true') {
+        setCookie('eilatMode', 'false', 1); // Expires in 1 day
+      } else {
+        setCookie('eilatMode', 'true', 1); // Expires in 1 day
+      }
+      location.reload();
+    });
+
     // console.log(local_pickup);
     //if is checkout page
     if ($('body').hasClass('woocommerce-checkout')) {
@@ -74,6 +124,8 @@
                     disabled: true,
                   });
                   toggleBillingFields(false);
+                  //remove coupon
+                  $('.woocommerce-form-coupon-toggle').hide();
                   // toggleCheckoutButton(false);
                   checkStock(true);
                 }
@@ -117,6 +169,7 @@
             disabled: false,
           });
           toggleBillingFields(true);
+          $('.woocommerce-form-coupon-toggle').show();
           $('.delivery_information_title').remove();
           // toggleCheckoutButton(true);
           // $('.orddd-checkout-fields').hide();
@@ -135,25 +188,14 @@
         $('#billing_city').val('אילת');
         $('#billing_state').val('IL2600').change();
         toggleBillingFields(false);
+        $('.woocommerce-form-coupon-toggle').hide();
       } else {
         $('#payment_method_cod').prop('checked', false).change();
         $('select#shipping_method_0').val('flat_rate:12').change();
         $('#billing_city').val('');
         $('#billing_state').val('').change();
         toggleBillingFields(true);
-      }
-
-      function customValidationPasses() {
-        var requiredFields = $('form.checkout').find(
-          'input[required], select[required]'
-        );
-        var isValid = true;
-        requiredFields.each(function () {
-          if ($(this).val() === '') {
-            isValid = false;
-          }
-        });
-        return isValid;
+        $('.woocommerce-form-coupon-toggle').show();
       }
 
       $(document.body).on('updated_checkout', function () {
@@ -244,44 +286,6 @@
     }
 
     if ($('body').hasClass('single-product')) {
-      $('#toggleEilatMode').on('click', function (e) {
-        e.preventDefault();
-        if (getCookie('eilatMode') === 'true') {
-          setCookie('eilatMode', 'false', 1); // Expires in 1 day
-        } else {
-          setCookie('eilatMode', 'true', 1); // Expires in 1 day
-        }
-        // location.reload();
-      });
-
-      function setCookie(name, value, days) {
-        var expires = '';
-        if (days) {
-          var date = new Date();
-          date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-          expires = '; expires=' + date.toUTCString();
-        }
-        document.cookie = name + '=' + (value || '') + expires + '; path=/';
-      }
-
-      function getCookie(name) {
-        var nameEQ = name + '=';
-        var ca = document.cookie.split(';');
-        for (var i = 0; i < ca.length; i++) {
-          var c = ca[i];
-          while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-          if (c.indexOf(nameEQ) == 0)
-            return c.substring(nameEQ.length, c.length);
-        }
-        return null;
-      }
-
-      $('#exit-eilat-mode').click(function (e) {
-        e.preventDefault();
-        setCookie('eilatMode', 'false', 1); // Expires in 1 day
-        location.reload();
-      });
-
       $('.eilat-button').on('click', function (e) {
         e.preventDefault();
         const product_id = $(this).data('product_id');

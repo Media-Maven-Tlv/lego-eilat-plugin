@@ -741,6 +741,7 @@ function process_eilat_order()
 		$error_message = 'יש למלא את השדות הבאים:';
 		wp_send_json_error(['message' => $error_message, 'error' =>  implode(', ', $missing_fields_list)]);		// return WC_AJAX::get_refreshed_fragments();
 	}
+
 	$order = wc_create_order();
 
 	$cart_items = WC()->cart->get_cart();
@@ -758,13 +759,10 @@ function process_eilat_order()
 
 	$order->set_payment_method('cod'); // Assuming cash on delivery
 	$order->calculate_totals(false);
-	if (get_option('delivery_date_status') == 'on') {
-		$order->update_meta_data('order_delivery_date', $order_data['order_delivery_date']);
-		$order->update_meta_data('order_delivery_time', $order_data['order_delivery_time']);
-	}
-	$e_deliverydate_0 = date('d/m/Y', strtotime($order_data['e_deliverydate_0']));
-	$order->update_meta_data('e_deliverydate_0', $e_deliverydate_0);
-	$order->update_meta_data('_orddd_timestamp', strtotime($order_data['orddd_time_slot_0']));
+	$order->update_meta_data('order_delivery_date', date('d/m/Y', strtotime($order_data['e_deliverydate_0'])));
+	$order->update_meta_data('e_deliverydate_0', date('d/m/Y', strtotime($order_data['e_deliverydate_0'])));
+	$order->update_meta_data('order_delivery_time', $order_data['orddd_time_slot_0']);
+	$order->update_meta_data('_orddd_timestamp', $order_data['orddd_time_slot_0']);
 	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
 	$order->save();
 
