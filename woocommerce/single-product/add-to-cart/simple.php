@@ -28,10 +28,30 @@ if ($product->is_in_stock()) :
         );
 
         do_action('woocommerce_after_add_to_cart_quantity'); ?>
-      </div>
-      <div class="align-items-center cart_button_single_prod col-md-12 d-flex justify-content-between mt-2 pt-md-2">
 
-        <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' && $product->get_meta('eilat_stock') > 0) :
+        <div class="eilat_toggle_wrapper me-4">
+          <div class="eilat_tooltip">
+            <svg fill="none" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" id="fi_9446643">
+              <g fill="rgb(0,0,0)">
+                <path d="m12.75 11c0-.4142-.3358-.75-.75-.75s-.75.3358-.75.75v6c0 .4142.3358.75.75.75s.75-.3358.75-.75z"></path>
+                <path clip-rule="evenodd" d="m12 1.25c-5.93706 0-10.75 4.81294-10.75 10.75 0 5.9371 4.81294 10.75 10.75 10.75 5.9371 0 10.75-4.8129 10.75-10.75 0-5.93706-4.8129-10.75-10.75-10.75zm-9.25 10.75c0-5.10863 4.14137-9.25 9.25-9.25 5.1086 0 9.25 4.14137 9.25 9.25 0 5.1086-4.1414 9.25-9.25 9.25-5.10863 0-9.25-4.1414-9.25-9.25z" fill-rule="evenodd"></path>
+                <path d="m13 8c0 .55228-.4477 1-1 1s-1-.44772-1-1 .4477-1 1-1 1 .44772 1 1z"></path>
+              </g>
+            </svg>
+            <span class="eilat_tooltip_text">מוצר זה ניתן לרכישה רק במצב אילת</span>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="toggleEilatMode" name="toggleEilatMode" aria-checked="<?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'true' : 'false'; ?>" <?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'checked' : ''; ?>>
+            <label class="form-check-label" for="toggleEilatMode" id="toggleEilatModeLabel">
+              הזמנה מאילת
+            </label>
+          </div>
+        </div>
+
+      </div>
+      <div class=" align-items-center cart_button_single_prod col-md-12 mt-2 pt-md-2">
+
+        <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') :
           do_action('eilat_add_to_cart_button');
         ?>
 
@@ -57,15 +77,4 @@ if ($product->is_in_stock()) :
   <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' && $product->get_meta('eilat_stock') > 0) :
     do_action('eilat_add_to_cart_button');
   endif; ?>
-<?php endif; ?>
-<?php if ($product->get_meta('eilat_stock') > 0) : ?>
-  <div class="mb-4">
-    <a href="#"><span class="fa fa-share" data-toggle="tooltip" data-original-title="Share"></span></a>
-    <div class="form-check form-switch">
-      <input class="form-check-input" type="checkbox" role="switch" id="toggleEilatMode" name="toggleEilatMode" aria-checked="<?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'true' : 'false'; ?>" <?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'checked' : ''; ?>>
-      <label class="form-check-label" for="toggleEilatMode">
-        הזמנה מחוץ לאילת
-      </label>
-    </div>
-  </div>
 <?php endif; ?>

@@ -5,48 +5,6 @@
     // console.log(local_pickup);
     //if is checkout page
     if ($('body').hasClass('woocommerce-checkout')) {
-      // $('#order_delivery_date').flatpickr({
-      //   locale: 'he',
-      //   minDate: 'today',
-      //   disable: [
-      //     function (date) {
-      //       var formattedDate =
-      //         date.getDate().toString().padStart(2, '0') +
-      //         '/' +
-      //         (date.getMonth() + 1).toString().padStart(2, '0') +
-      //         '/' +
-      //         date.getFullYear().toString();
-
-      //       return (
-      //         excluded_dates.includes(formattedDate) || // Check if date is in excluded_dates
-      //         date.getDay() === 6 || // Disable Saturdays
-      //         date.getDay() === 5 // Disable Fridays
-      //       );
-      //     },
-      //   ],
-      //   dateFormat: 'd/m/Y',
-      //   altInput: true,
-      //   altFormat: 'd/m/Y',
-      //   enableTime: false,
-      //   time_24hr: true,
-      //   theme: 'airbnb',
-      //   // plugins: [new confirmDatePlugin({
-      //   //   confirmText: "אישור",
-      //   //   showAlways: false,
-      //   //   theme: "dark"
-      //   // })]
-      //   // onChange: function (selectedDates, dateStr, instance) {
-      //   //   console.log(dateStr);
-      //   // },
-      // });
-
-      // $('#order_delivery_time').select2({
-      //   placeholder: 'בחר שעה',
-      //   allowClear: true,
-      //   width: '100%',
-      //   style: 'border: 1px solid #ccc',
-      // });
-
       function toggleBillingFields(display) {
         var fields = [
           '#billing_address_1_field',
@@ -106,7 +64,7 @@
                     },
                   });
                 } else {
-                  jQuery('#shipping_method_0').val(local_pickup).change();
+                  $('#shipping_method_0').val(local_pickup).change();
                   setCookie('eilatMode', 'true', 1); // Expires in 1 day
                   $('#billing_city').val('אילת');
                   $('#billing_city').attr('disabled', true);
@@ -142,7 +100,7 @@
             disabled: true,
           });
           toggleBillingFields(false);
-          jQuery('.orddd-checkout-fields').prepend(
+          $('.orddd-checkout-fields').prepend(
             '<div class="delivery_information_title">בחירת מועד איסוף</div>'
           );
           // toggleCheckoutButton(false);
@@ -159,7 +117,7 @@
             disabled: false,
           });
           toggleBillingFields(true);
-          jQuery('.delivery_information_title').remove();
+          $('.delivery_information_title').remove();
           // toggleCheckoutButton(true);
           // $('.orddd-checkout-fields').hide();
           checkStock(false);
@@ -177,18 +135,12 @@
         $('#billing_city').val('אילת');
         $('#billing_state').val('IL2600').change();
         toggleBillingFields(false);
-        // setTimeout(function () {
-        //   toggleCheckoutButton(false);
-        // }, 800);
       } else {
         $('#payment_method_cod').prop('checked', false).change();
         $('select#shipping_method_0').val('flat_rate:12').change();
         $('#billing_city').val('');
         $('#billing_state').val('').change();
         toggleBillingFields(true);
-        // setTimeout(function () {
-        //   toggleCheckoutButton(true);
-        // }, 800);
       }
 
       function customValidationPasses() {
@@ -205,7 +157,7 @@
       }
 
       $(document.body).on('updated_checkout', function () {
-        if (document.cookie.indexOf('eilatMode=true') !== -1) {
+        if (getCookie('eilatMode') === 'true') {
           $('button#place_order').text('הזמנה מאילת');
           $('button#place_order').attr('id', 'eilat_place_order');
           $('button#eilat_place_order').attr('type', 'button');
@@ -291,83 +243,81 @@
       toggle_delivery_details();
     }
 
-    function setCookie(name, value, days) {
-      var expires = '';
-      if (days) {
-        var date = new Date();
-        date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-        expires = '; expires=' + date.toUTCString();
-      }
-      document.cookie = name + '=' + (value || '') + expires + '; path=/';
-    }
-
-    function getCookie(name) {
-      var nameEQ = name + '=';
-      var ca = document.cookie.split(';');
-      for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-      }
-      return null;
-    }
-
-    $('#exit-eilat-mode').click(function (e) {
-      e.preventDefault();
-      setCookie('eilatMode', 'false', 1); // Expires in 1 day
-      location.reload();
-    });
-
-    $('.eilat-button').on('click', function (e) {
-      e.preventDefault();
-      const product_id = $(this).data('product_id');
-      const product_sku = $(this).data('product_sku');
-      const quantity = $(this).data('quantity');
-      $.ajax({
-        type: 'POST',
-        url: '/wp-admin/admin-ajax.php',
-        data: {
-          action: 'add_product_to_eilat',
-          product_id: product_id,
-          product_sku: product_sku,
-          quantity: quantity,
-        },
-        success: function (response) {
-          console.log(response);
-          $(document.body).trigger('added_to_cart', [
-            response.fragments,
-            response.cart_hash,
-            $('.eilat-button'),
-          ]);
-        },
-      });
-    });
-
     if ($('body').hasClass('single-product')) {
-      document
-        .getElementById('toggleEilatMode')
-        .addEventListener('click', function () {
-          if (getCookie('eilatMode') === 'true') {
-            setCookie('eilatMode', 'false', 1); // Expires in 1 day
-          } else {
-            setCookie('eilatMode', 'true', 1); // Expires in 1 day
-          }
-          location.reload();
+      $('#toggleEilatMode').on('click', function (e) {
+        e.preventDefault();
+        if (getCookie('eilatMode') === 'true') {
+          setCookie('eilatMode', 'false', 1); // Expires in 1 day
+        } else {
+          setCookie('eilatMode', 'true', 1); // Expires in 1 day
+        }
+        // location.reload();
+      });
+
+      function setCookie(name, value, days) {
+        var expires = '';
+        if (days) {
+          var date = new Date();
+          date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+          expires = '; expires=' + date.toUTCString();
+        }
+        document.cookie = name + '=' + (value || '') + expires + '; path=/';
+      }
+
+      function getCookie(name) {
+        var nameEQ = name + '=';
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+          var c = ca[i];
+          while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+          if (c.indexOf(nameEQ) == 0)
+            return c.substring(nameEQ.length, c.length);
+        }
+        return null;
+      }
+
+      $('#exit-eilat-mode').click(function (e) {
+        e.preventDefault();
+        setCookie('eilatMode', 'false', 1); // Expires in 1 day
+        location.reload();
+      });
+
+      $('.eilat-button').on('click', function (e) {
+        e.preventDefault();
+        const product_id = $(this).data('product_id');
+        const product_sku = $(this).data('product_sku');
+        const quantity = $(this).data('quantity');
+        $.ajax({
+          type: 'POST',
+          url: '/wp-admin/admin-ajax.php',
+          data: {
+            action: 'add_product_to_eilat',
+            product_id: product_id,
+            product_sku: product_sku,
+            quantity: quantity,
+          },
+          success: function (response) {
+            console.log(response);
+            $(document.body).trigger('added_to_cart', [
+              response.fragments,
+              response.cart_hash,
+              $('.eilat-button'),
+            ]);
+          },
         });
+      });
 
       if (getCookie('eilatMode') === 'true') {
-        jQuery('#toggleEilatModeLabel').text('הזמנה מחוץ לאילת');
+        $('body').addClass('eilat-mode');
       } else {
-        jQuery('#toggleEilatModeLabel').text('הזמנה מאילת');
+        $('body').removeClass('eilat-mode');
+      }
+
+      if (getCookie('eilatMode') === 'true') {
+        $('#toggleEilatModeLabel').text('הזמנה מחוץ לאילת');
+      } else {
+        $('#toggleEilatModeLabel').text('הזמנה מאילת');
       }
     }
-
-    if (getCookie('eilatMode') === 'true') {
-      $('body').addClass('eilat-mode');
-    } else {
-      $('body').removeClass('eilat-mode');
-    }
-
-    //init flatpicker on order_delivery_date
   });
 })(jQuery);
