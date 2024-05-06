@@ -35,7 +35,7 @@ class Woocommerce_Eilat_Mode_Public
 	/**
 	 * The version of this plugin.
 	 *
-	 * @since    1.0.0
+	 * @since    1.0.1
 	 * @access   private
 	 * @var      string    $version    The current version of this plugin.
 	 */
@@ -111,7 +111,16 @@ class Woocommerce_Eilat_Mode_Public
 		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public.js', array(
 			'jquery'
 		), $this->version, false);
-
+		if (is_checkout()) {
+			wp_enqueue_script('woocommerce-eilat-mode-checkout', plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public-checkout.js', array(
+				'jquery'
+			), $this->version, false);
+		}
+		if (is_product()) {
+			wp_enqueue_script('woocommerce-eilat-mode-product', plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public-product.js', array(
+				'jquery'
+			), $this->version, false);
+		}
 		$local_pickup = get_option('eilat_pickup_method');
 		wp_localize_script($this->plugin_name, 'local_pickup', $local_pickup);
 	}

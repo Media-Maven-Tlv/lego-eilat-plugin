@@ -267,6 +267,17 @@ function custom_email_actions($action)
 	return $actions;
 }
 
+//insert new order as wc-eilat-pickup
+function set_custom_order_status_based_on_eilat_mode($order, $data)
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		$order->set_status('eilat-pickup');
+	}
+}
+
+add_action('woocommerce_checkout_create_order', 'set_custom_order_status_based_on_eilat_mode', 20, 2);
+
+
 
 // get cookie value
 function get_cookie_eilat_mode()
@@ -400,7 +411,7 @@ function validate_eilat_stock_during_checkout()
 			$eilat_stock = get_post_meta($cart_item['product_id'], 'eilat_stock', true);
 
 			if ($eilat_stock <= 0 || $eilat_stock < $cart_item['quantity']) {
-				wc_add_notice(sprintf(__('Sorry, there is not enough Eilat stock for "%s".', 'textdomain'), $cart_item['data']->get_name()), 'error');
+				wc_add_notice(sprintf(__('מצטערים, המוצר "%s" אינו זמין באילת כרגע.', 'textdomain'), $cart_item['data']->get_name()), 'error');
 			}
 		}
 	}
