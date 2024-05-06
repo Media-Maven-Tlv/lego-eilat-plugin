@@ -1,10 +1,9 @@
 (function ($) {
-  'use strict';
+  ('use strict');
 
   // Create and append the loading indicator to the body
   window.createLoadingIndicator = function () {
-    var loadingHtml =
-      '<div id="loadingIndicator" style="position: fixed;width: 100%;height: 100%;top: 0;left: 0;z-index: 9999;color:white;background: rgba(0, 0, 0, 0.75) url(\'path_to_spinner.gif\') center no-repeat;align-items: center;justify-content: center;font-size: 50px;">טוען...</div>';
+    var loadingHtml = '<div id="loadingIndicator" >טוען...</div>';
     $('body').prepend(loadingHtml);
   };
 
@@ -53,6 +52,49 @@
     $('#exit-eilat-mode').on('click', exitEilatMode);
     if (getCookie('eilatMode') === 'true') {
       $('body').addClass('eilat-mode');
+
+      $('.eilat-button').each(function () {
+        var eilatStock = $(this).attr('eilat-stock'); // Get the value of the 'eilat-stock' attribute
+
+        if (eilatStock === 'true') {
+          // Do something if eilat-stock is true
+          console.log('Eilat stock is available');
+          // Example action: enable the button
+          $(this).text('הזמנה מאילת');
+          $(this).on('click', function (e) {
+            e.preventDefault();
+            var button = $(this);
+            var product_id = button.data('product_id');
+            var product_sku = button.data('product_sku');
+            var quantity = button.data('quantity');
+            $.ajax({
+              type: 'POST',
+              url: '/wp-admin/admin-ajax.php',
+              data: {
+                action: 'add_product_to_eilat',
+                product_id: product_id,
+                product_sku: product_sku,
+                quantity: quantity,
+              },
+              success: function (response) {
+                hideLoadingIndicator();
+                $(document.body).trigger('added_to_cart', [
+                  response.fragments,
+                  response.cart_hash,
+                  button,
+                ]);
+              },
+            });
+          });
+        } else {
+          // Do something if eilat-stock is false
+          console.log('Eilat stock is not available');
+          // Example action: disable the button
+          $(this).attr('href', '#');
+          $(this).addClass('disabled');
+          $(this).text('מוצר זה לא זמין באילת');
+        }
+      });
     } else {
       $('body').removeClass('eilat-mode');
     }

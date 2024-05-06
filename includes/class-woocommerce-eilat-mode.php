@@ -417,6 +417,18 @@ function validate_eilat_stock_during_checkout()
 	}
 }
 
+add_filter('woocommerce_loop_add_to_cart_args', 'filter_woocommerce_loop_add_to_cart_args', 10, 2);
+function filter_woocommerce_loop_add_to_cart_args($args, $product)
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		$args['attributes']['eilat-stock'] = $product->get_meta('eilat_stock') > 0 ? 'true' : 'false';
+		$args['class'] = 'eilat-button';
+	}
+	return $args;
+}
+
+
+
 //add eilat stock custom field
 add_action('woocommerce_product_options_inventory_product_data', 'add_eilat_stock_custom_field');
 function add_eilat_stock_custom_field()
