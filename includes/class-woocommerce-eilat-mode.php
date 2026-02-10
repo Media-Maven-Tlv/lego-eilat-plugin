@@ -72,7 +72,7 @@ class Woocommerce_Eilat_Mode
 		if (defined('WOOCOMMERCE_EILAT_MODE_VERSION')) {
 			$this->version = WOOCOMMERCE_EILAT_MODE_VERSION;
 		} else {
-			$this->version = '1.9.5';
+			$this->version = '2.0.82';
 		}
 		$this->plugin_name = 'woocommerce-eilat-mode';
 
@@ -178,6 +178,16 @@ class Woocommerce_Eilat_Mode
 
 		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_styles');
 		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'enqueue_scripts');
+
+		// Pickup inline notice (before Place Order button on checkout, before Proceed to Checkout on cart)
+		$this->loader->add_action('woocommerce_review_order_before_submit', $plugin_public, 'pickup_notice_html');
+		$this->loader->add_action('woocommerce_proceed_to_checkout', $plugin_public, 'pickup_notice_html');
+
+		// Pickup popup in wp_footer (outside checkout form so fragment replacement won't destroy it)
+		$this->loader->add_action('wp_footer', $plugin_public, 'pickup_popup_html');
+
+		// Exclude checkout JS from Cloudflare Rocket Loader
+		$this->loader->add_filter('script_loader_tag', $plugin_public, 'exclude_script_from_rocket_loader', 10, 2);
 	}
 
 
@@ -228,44 +238,120 @@ class Woocommerce_Eilat_Mode
 
 
 
-
-// register custom order status
+// Register custom order statuses
 function register_custom_order_status()
 {
-	register_post_status('wc-eilat-pickup', array(
-		'label'                     => _x('איסוף מאילת', 'Order status', 'textdomain'),
-		'public'                    => true,
-		'exclude_from_search'       => false,
-		'show_in_admin_all_list'    => true,
-		'show_in_admin_status_list' => true,
-		'label_count'               => _n_noop('איסוף מאילת <span class="count">(%s)</span>', 'איסוף מאילת <span class="count">(%s)</span>', 'textdomain')
-	));
+	$statuses = [
+		'wc-eilat-pickup' => __('אילת הזמנה חדשה', 'textdomain'),
+		'wc-eilat-partial' => __('אילת אספקה חלקית', 'textdomain'),
+		'wc-eilat-full' => __('אילת אספקה מלאה', 'textdomain'),
+		'wc-eilat-no-stock' => __('אילת ללא אספקה', 'textdomain'),
+		'wc-eilat-cancelled' => __('אילת בוטל על ידי הלקוח', 'textdomain'),
+	];
+
+	foreach ($statuses as $status => $label) {
+		register_post_status($status, array(
+			'label'                     => $label,
+			'public'                    => true,
+			'exclude_from_search'       => false,
+			'show_in_admin_all_list'    => true,
+			'show_in_admin_status_list' => true,
+			'label_count'               => _n_noop("{$label} <span class=\"count\">(%s)</span>", "{$label} <span class=\"count\">(%s)</span>", 'textdomain')
+		));
+	}
 }
 add_action('init', 'register_custom_order_status');
 
-//add custom order status to WooCommerce
+// Add custom order statuses to WooCommerce
 function add_custom_order_status_to_woocommerce($order_statuses)
 {
-	$order_statuses['wc-eilat-pickup'] = _x('איסוף מאילת', 'Order status', 'textdomain');
-	return $order_statuses;
+	$custom_statuses = [
+		'wc-eilat-pickup' => __('אילת הזמנה חדשה', 'textdomain'),
+		'wc-eilat-partial' => __('אילת אספקה חלקית', 'textdomain'),
+		'wc-eilat-full' => __('אילת אספקה מלאה', 'textdomain'),
+		'wc-eilat-no-stock' => __('אילת ללא אספקה', 'textdomain'),
+		'wc-eilat-cancelled' => __('אילת בוטל על ידי הלקוח', 'textdomain'),
+	];
+
+	// Insert custom statuses after 'wc-pending'
+	$new_order_statuses = [];
+	foreach ($order_statuses as $key => $status) {
+		$new_order_statuses[$key] = $status;
+		if ('wc-pending' === $key) {
+			foreach ($custom_statuses as $custom_key => $custom_label) {
+				$new_order_statuses[$custom_key] = $custom_label;
+			}
+		}
+	}
+	return $new_order_statuses;
 }
 add_filter('wc_order_statuses', 'add_custom_order_status_to_woocommerce');
 
-// Adding custom status 'wc-eilat-pickup' to admin order list bulk dropdown
-add_filter('bulk_actions-edit-shop_order', 'custom_dropdown_bulk_actions_shop_order', 20, 1);
+// Add custom bulk actions to the bulk actions dropdown
 function custom_dropdown_bulk_actions_shop_order($actions)
 {
 	$actions['mark_wc-eilat-pickup'] = __('שינוי הסטטוס לאיסוף מאילת', 'woocommerce');
+	$actions['mark_wc-eilat-partial'] = __('שינוי הסטטוס לאיסוף מאילת חלקי', 'woocommerce');
+	$actions['mark_wc-eilat-full'] = __('שינוי הסטטוס לאספקה מלאה מאילת', 'woocommerce');
+	$actions['mark_wc-eilat-no-stock'] = __('שינוי הסטטוס לאילת ללא אספקה', 'woocommerce');
+	$actions['mark_wc-eilat-cancelled'] = __('שינוי הסטטוס לאילת בוטל על ידי הלקוח', 'woocommerce');
 	return $actions;
 }
+add_filter('bulk_actions-edit-shop_order', 'custom_dropdown_bulk_actions_shop_order', 20, 1);
 
-// Adding action for 'wc-eilat-pickup'
-add_filter('woocommerce_email_actions', 'custom_email_actions', 20, 1);
-function custom_email_actions($action)
+// Handle custom bulk actions and update order statuses with debugging
+function handle_custom_bulk_actions_shop_order($redirect_url, $action, $post_ids)
+{
+	$status_map = [
+		'mark_wc-eilat-pickup' => 'wc-eilat-pickup',
+		'mark_wc-eilat-partial' => 'wc-eilat-partial',
+		'mark_wc-eilat-full' => 'wc-eilat-full',
+		'mark_wc-eilat-no-stock' => 'wc-eilat-no-stock',
+		'mark_wc-eilat-cancelled' => 'wc-eilat-cancelled',
+	];
+
+	if (isset($status_map[$action])) {
+		foreach ($post_ids as $post_id) {
+			$order = wc_get_order($post_id);
+			if ($order) {
+				// Log before updating status
+				error_log("Updating order #{$post_id} to status {$status_map[$action]}");
+				$order->update_status($status_map[$action], __('Status updated via custom bulk action.', 'textdomain'));
+				// Log after updating status
+				error_log("Order #{$post_id} status updated to {$order->get_status()}");
+			} else {
+				error_log("Order not found: #{$post_id}");
+			}
+		}
+		$redirect_url = add_query_arg('bulk_custom_status', count($post_ids), $redirect_url);
+	}
+
+	return $redirect_url;
+}
+add_filter('handle_bulk_actions-edit-shop_order', 'handle_custom_bulk_actions_shop_order', 10, 3);
+
+// Add admin notices for bulk actions
+function custom_bulk_action_admin_notice()
+{
+	if (!empty($_REQUEST['bulk_custom_status'])) {
+		$count = intval($_REQUEST['bulk_custom_status']);
+		printf('<div id="message" class="updated fade"><p>%s %d.</p></div>', __('Successfully updated', 'textdomain'), $count);
+	}
+}
+add_action('admin_notices', 'custom_bulk_action_admin_notice');
+
+// Add custom status to WooCommerce email actions
+function custom_email_actions($actions)
 {
 	$actions[] = 'woocommerce_order_status_wc-eilat-pickup';
+	$actions[] = 'woocommerce_order_status_wc-eilat-partial';
+	$actions[] = 'woocommerce_order_status_wc-eilat-full';
+	$actions[] = 'woocommerce_order_status_wc-eilat-no-stock';
+	$actions[] = 'woocommerce_order_status_wc-eilat-cancelled';
 	return $actions;
 }
+add_filter('woocommerce_email_actions', 'custom_email_actions', 20, 1);
+
 
 //insert new order as wc-eilat-pickup
 function set_custom_order_status_based_on_eilat_mode($order, $data)
@@ -279,59 +365,305 @@ add_action('woocommerce_checkout_create_order', 'set_custom_order_status_based_o
 
 
 
-// get cookie value
+// get cookie value with static caching for performance
 function get_cookie_eilat_mode()
 {
-	if (isset($_COOKIE['eilatMode'])) {
-		return $_COOKIE['eilatMode'] === 'true';
+	static $result = null;
+	if ($result === null) {
+		$result = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
 	}
-	return false;
+	return $result;
 }
 
-add_filter('woocommerce_product_get_tax_class', 'apply_zero_tax_class_for_eilat_mode', 10, 2);
-function apply_zero_tax_class_for_eilat_mode($tax_class, $product)
+// Cache eilat_min_stock option
+function get_eilat_min_stock_cached()
 {
-	if (get_cookie_eilat_mode()) {
-		return 'Zero Rate';
+	static $min_stock = null;
+	if ($min_stock === null) {
+		$min_stock = get_option('eilat_min_stock') ? (int) get_option('eilat_min_stock') : 0;
 	}
-	return $tax_class;
+	return $min_stock;
 }
 
-add_filter('woocommerce_shipping_tax_class', 'set_zero_shipping_tax_for_eilat_mode', 10, 3);
-function set_zero_shipping_tax_for_eilat_mode($tax_class, $shipping_rate, $package)
+// Register REST API endpoints for better performance
+add_action('rest_api_init', 'eilat_register_rest_routes');
+function eilat_register_rest_routes()
 {
-	if (get_cookie_eilat_mode()) {
-		return 'Zero Rate';
-	}
-	return $tax_class;
+	register_rest_route('eilat/v1', '/add-to-cart', array(
+		'methods' => 'POST',
+		'callback' => 'eilat_rest_add_to_cart',
+		'permission_callback' => '__return_true'
+	));
+	
+	register_rest_route('eilat/v1', '/check-stock', array(
+		'methods' => 'POST',
+		'callback' => 'eilat_rest_check_stock',
+		'permission_callback' => '__return_true'
+	));
+	
+	register_rest_route('eilat/v1', '/remove-coupon', array(
+		'methods' => 'POST',
+		'callback' => 'eilat_rest_remove_coupon',
+		'permission_callback' => '__return_true'
+	));
+	
+	register_rest_route('eilat/v1', '/clear-cart', array(
+		'methods' => 'POST',
+		'callback' => 'eilat_rest_clear_cart',
+		'permission_callback' => '__return_true'
+	));
 }
 
-add_filter('woocommerce_product_get_tax_class', 'eilat_zero_tax_class_for_product', 10, 2);
-add_filter('woocommerce_product_variation_get_tax_class', 'eilat_zero_tax_class_for_product', 10, 2);
-function eilat_zero_tax_class_for_product($tax_class, $product)
+// Helper function to ensure WooCommerce cart is initialized
+function eilat_ensure_wc_cart()
 {
-	// Early return if we're not in the cart or no cart is available yet
-	// if (!did_action('woocommerce_before_calculate_totals')) {
-	// 	return $tax_class;
-	// }
+	if (is_null(WC()->cart)) {
+		wc_load_cart();
+	}
+}
 
-	$eilatMode = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
-	if (!$eilatMode) return; // Exit if not in Eilat mode
+// REST API: Add to cart
+function eilat_rest_add_to_cart($request)
+{
+	// Start output buffering to catch any unwanted output from filters/actions
+	ob_start();
+	
+	// Ensure WooCommerce cart is initialized
+	eilat_ensure_wc_cart();
+	
+	$product_id = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
+	$quantity = isset($_POST['quantity']) ? absint($_POST['quantity']) : 1;
+	$override = isset($_POST['override']) ? filter_var($_POST['override'], FILTER_VALIDATE_BOOLEAN) : false;
+	$cart_item_data = array('eilat' => true);
 
-	// Get the cart
-	$cart = WC()->cart->get_cart();
-	foreach ($cart as $cart_item) {
-		// Check if the 'eilat' flag is set for the cart item
-		$isEilatProduct = $cart_item['eilat'];
+	try {
+		$product_data = wc_get_product($product_id);
 
-		if ($isEilatProduct) {
-			return 'Zero Rate'; // Make sure this matches the name of your zero tax rate class
+		if ($quantity <= 0 || !$product_data || 'trash' === $product_data->get_status()) {
+			ob_end_clean();
+			return new WP_REST_Response(array('success' => false, 'error' => 'Invalid product'), 400);
+		}
+
+		$cart_item_data = (array) apply_filters('woocommerce_add_cart_item_data', $cart_item_data, $product_id, 0, $quantity);
+		$cart = WC()->cart;
+		$cart_id = $cart->generate_cart_id($product_id, 0, array(), $cart_item_data);
+		$cart_item_key = $cart->find_product_in_cart($cart_id);
+
+		if ($cart_item_key && !$override) {
+			ob_end_clean();
+			return new WP_REST_Response(array(
+				'success' => false,
+				'product_exists' => true,
+				'product_name' => $product_data->get_name()
+			), 200);
+		}
+
+		if (!check_if_product_is_in_eilat_stock($product_data)) {
+			$message = sprintf(__('You cannot add &quot;%s&quot; to the cart because the product is out of stock.', 'woocommerce'), $product_data->get_name());
+			$message = apply_filters('woocommerce_cart_product_out_of_stock_message', $message, $product_data);
+			ob_end_clean();
+			return new WP_REST_Response(array('success' => false, 'error' => $message), 200);
+		}
+
+		if ($cart_item_key) {
+			$new_quantity = $quantity + $cart->cart_contents[$cart_item_key]['quantity'];
+			$cart->set_quantity($cart_item_key, $new_quantity, false);
+		} else {
+			$cart_item_key = $cart_id;
+			$cart->cart_contents[$cart_item_key] = apply_filters(
+				'woocommerce_add_cart_item',
+				array_merge(
+					$cart_item_data,
+					array(
+						'key' => $cart_item_key,
+						'product_id' => $product_id,
+						'variation_id' => 0,
+						'variation' => array(),
+						'quantity' => $quantity,
+						'data' => $product_data,
+						'data_hash' => wc_get_cart_item_data_hash($product_data),
+					)
+				),
+				$cart_item_key
+			);
+		}
+
+		$cart->cart_contents = apply_filters('woocommerce_cart_contents_changed', $cart->cart_contents);
+		do_action('woocommerce_add_to_cart', $cart_item_key, $product_id, $quantity, 0, array(), $cart_item_data);
+		do_action('woocommerce_ajax_added_to_cart', $product_id);
+		
+		// Get fragments manually instead of using WC_AJAX::get_refreshed_fragments() which outputs directly
+		$fragments = apply_filters('woocommerce_add_to_cart_fragments', array());
+		$cart_hash = WC()->cart->get_cart_hash();
+		
+		// Clear any output buffer
+		ob_end_clean();
+		
+		return new WP_REST_Response(array(
+			'success' => true,
+			'fragments' => $fragments,
+			'cart_hash' => $cart_hash
+		), 200);
+	} catch (Exception $e) {
+		ob_end_clean();
+		return new WP_REST_Response(array('success' => false, 'error' => $e->getMessage()), 200);
+	}
+}
+
+// REST API: Check stock
+function eilat_rest_check_stock($request)
+{
+	// Ensure WooCommerce cart is initialized
+	eilat_ensure_wc_cart();
+	
+	$eilatMode = get_cookie_eilat_mode();
+	$cartItems = WC()->cart->get_cart();
+	$gwpInCart = false;
+	
+	// Prime meta cache for all products at once
+	$product_ids = wp_list_pluck($cartItems, 'product_id');
+	if (!empty($product_ids)) {
+		update_meta_cache('post', $product_ids);
+	}
+	
+	$min_stock = get_eilat_min_stock_cached();
+
+	foreach ($cartItems as $cart_item) {
+		$productID = $cart_item['product_id'];
+		$quantity = $cart_item['quantity'];
+		$product = $cart_item['data'];
+
+		if ($product && has_term('gwp', 'product_cat', $productID)) {
+			$gwpInCart = true;
+			continue;
+		}
+
+		if ($eilatMode) {
+			$eilatStock = (int) get_post_meta($productID, 'eilat_stock', true);
+			if ($eilatStock <= $min_stock || $eilatStock < $quantity) {
+				return new WP_REST_Response(array(
+					'success' => false,
+					'data' => 'למוצר ' . $product->get_name() . ' אין מספיק יחידות במלאי באילת, יש לעדכן את הכמות בעגלת הקניות.'
+				), 200);
+			}
+		} else {
+			if ($product && !$product->is_in_stock()) {
+				return new WP_REST_Response(array(
+					'success' => false,
+					'data' => 'מצטערים, אין מספיק מלאי למוצר "' . $product->get_name() . '".'
+				), 200);
+			}
 		}
 	}
 
-	// Return the original tax class if conditions are not met
+	if ($gwpInCart) {
+		return new WP_REST_Response(array(
+			'success' => true,
+			'data' => array('message' => 'קבלת המתנה מותנית במלאי המוצר בסניף אילת', 'gwpInCart' => true)
+		), 200);
+	}
+
+	return new WP_REST_Response(array('success' => true, 'data' => 'All items in stock.'), 200);
+}
+
+// REST API: Remove coupon
+function eilat_rest_remove_coupon($request)
+{
+	// Ensure WooCommerce cart is initialized
+	eilat_ensure_wc_cart();
+	
+	if (get_cookie_eilat_mode()) {
+		if (WC()->cart && WC()->cart->has_discount()) {
+			WC()->cart->remove_coupons();
+			wc_clear_notices();
+			return new WP_REST_Response(array('success' => true), 200);
+		}
+	}
+	return new WP_REST_Response(array('success' => false), 200);
+}
+
+// REST API: Clear cart
+function eilat_rest_clear_cart($request)
+{
+	// Ensure WooCommerce cart is initialized
+	eilat_ensure_wc_cart();
+	
+	WC()->cart->empty_cart();
+	return new WP_REST_Response(array('success' => true, 'message' => 'Cart cleared successfully.'), 200);
+}
+
+// Conditionally register tax filters only when in Eilat mode
+add_action('init', 'eilat_conditionally_register_tax_filters', 1);
+function eilat_conditionally_register_tax_filters()
+{
+	if (get_cookie_eilat_mode()) {
+		add_filter('woocommerce_product_get_tax_class', 'apply_zero_tax_class_for_eilat_mode', 10, 2);
+		add_filter('woocommerce_shipping_tax_class', 'set_zero_shipping_tax_for_eilat_mode', 10, 3);
+	}
+}
+
+function apply_zero_tax_class_for_eilat_mode($tax_class, $product)
+{
+	return 'Zero Rate';
+}
+
+function set_zero_shipping_tax_for_eilat_mode($tax_class, $shipping_rate, $package)
+{
+	return 'Zero Rate';
+}
+
+add_filter('woocommerce_package_rates', 'disable_tax_for_specific_shipping_method', 10, 2);
+
+function disable_tax_for_specific_shipping_method($rates, $package)
+{
+	foreach ($rates as $rate_key => $rate) {
+		// Check if the shipping method is the one for which we want to disable tax
+		if ($rate->method_id === 'flat_rate' && strpos($rate->id, 'flat_rate:3') !== false) {
+			$rates[$rate_key]->taxes = array();  // Set taxes to an empty array
+			$rates[$rate_key]->taxable = false;  // Mark the rate as not taxable
+		}
+	}
+	return $rates;
+}
+
+
+
+// Conditionally register product tax class filters
+add_action('init', 'eilat_conditionally_register_product_tax_filters', 2);
+function eilat_conditionally_register_product_tax_filters()
+{
+	if (get_cookie_eilat_mode()) {
+		add_filter('woocommerce_product_get_tax_class', 'eilat_zero_tax_class_for_product', 10, 2);
+		add_filter('woocommerce_product_variation_get_tax_class', 'eilat_zero_tax_class_for_product', 10, 2);
+	}
+}
+
+function eilat_zero_tax_class_for_product($tax_class, $product)
+{
+	// Make sure WC()->cart is initialized
+	if (is_null(WC()->cart)) {
+		return $tax_class;
+	}
+
+	// Use static cache to avoid repeated cart iterations
+	static $eilat_product_ids = null;
+	if ($eilat_product_ids === null) {
+		$eilat_product_ids = array();
+		foreach (WC()->cart->get_cart() as $cart_item) {
+			if (!empty($cart_item['eilat'])) {
+				$eilat_product_ids[$cart_item['product_id']] = true;
+			}
+		}
+	}
+
+	// Check if this product is an eilat product
+	if (isset($eilat_product_ids[$product->get_id()])) {
+		return 'Zero Rate';
+	}
+
 	return $tax_class;
 }
+
 
 
 // add_action('woocommerce_before_calculate_totals', 'adjust_eilat_prices', 10, 1);
@@ -359,56 +691,57 @@ function adjust_eilat_prices($cart)
 }
 
 
-add_filter('woocommerce_checkout_fields', 'custom_toggle_checkout_field_requirements_based_on_cookie');
+// add_filter('woocommerce_checkout_fields', 'custom_toggle_checkout_field_requirements_based_on_cookie');
 
-function custom_toggle_checkout_field_requirements_based_on_cookie($fields) {
-    // Determine if the cookie 'eilatMode' is set to 'true'
-    $is_eilat_mode = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
+// function custom_toggle_checkout_field_requirements_based_on_cookie($fields) {
+//     // Determine if the cookie 'eilatMode' is set to 'true'
+//     $is_eilat_mode = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
 
-    // List of billing fields to modify
-    $billing_fields_to_modify = [
-        'billing_address_1',
-        'billing_address_2',
-        'billing_address_3',
-        'billing_city',
-        'billing_state',
-        'billing_postcode',
-        // 'billing_country'
-    ];
+//     // List of billing fields to modify
+//     $billing_fields_to_modify = [
+//         'billing_address_1',
+//         'billing_address_2',
+//         'billing_address_3',
+//         'billing_city',
+//         'billing_state',
+//         'billing_postcode',
+//         // 'billing_country'
+//     ];
 
-    // Loop through each field and adjust the required status based on eilat mode
-    foreach ($billing_fields_to_modify as $field) {
-        if (isset($fields['billing'][$field])) {
-            $fields['billing'][$field]['required'] = !$is_eilat_mode; // Required if not in eilat mode
-        }
-    }
+//     // Loop through each field and adjust the required status based on eilat mode
+//     foreach ($billing_fields_to_modify as $field) {
+//         if (isset($fields['billing'][$field])) {
+//             $fields['billing'][$field]['required'] = !$is_eilat_mode; // Required if not in eilat mode
+//         }
+//     }
 
-    return $fields;
-}
+//     return $fields;
+// }
 
 
 add_action('woocommerce_after_checkout_validation', 'custom_checkout_field_validation', 20, 2);
 
-function custom_checkout_field_validation($data, $errors) {
-    if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
-        // Define the fields that you want to ignore during validation
-        $fields_to_ignore = [
-            'billing_address_1',
-            'billing_address_2',
-            'billing_address_3',
-            'billing_city',
-            'billing_state',
-            'billing_postcode',
-            // 'billing_country'
-        ];
+function custom_checkout_field_validation($data, $errors)
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		// Define the fields that you want to ignore during validation
+		$fields_to_ignore = [
+			'billing_address_1',
+			'billing_address_2',
+			'billing_address_3',
+			'billing_city',
+			'billing_state',
+			'billing_postcode',
+			// 'billing_country'
+		];
 
-        // Loop through each field and remove errors related to them
-        foreach ($fields_to_ignore as $field) {
-            if ($errors->get_error_code('billing_' . $field)) {
-                $errors->remove('billing_' . $field);
-            }
-        }
-    }
+		// Loop through each field and remove errors related to them
+		foreach ($fields_to_ignore as $field) {
+			if ($errors->get_error_code('billing_' . $field)) {
+				$errors->remove('billing_' . $field);
+			}
+		}
+	}
 }
 
 
@@ -422,55 +755,161 @@ function limit_payment_methods_for_eilat_mode($available_gateways)
 		foreach ($available_gateways as $gateway_id => $gateway) {
 			if ($gateway_id !== 'cod') {
 				unset($available_gateways[$gateway_id]); // Unset all gateways except COD
-
-
 			}
 		}
+	} else {
+		unset($available_gateways['cod']); // Unset COD if not in Eilat mode
 	}
 
 	return $available_gateways;
 }
 
-//check eilat inventory on checkout process
-add_action('woocommerce_checkout_process', 'validate_eilat_stock_during_checkout');
-function validate_eilat_stock_during_checkout()
-{
-	if (isset($_COOKIE['eilatMode']) && 'true' === $_COOKIE['eilatMode']) {
-		foreach (WC()->cart->get_cart() as $cart_item) {
-			$eilat_stock = get_post_meta($cart_item['product_id'], 'eilat_stock', true);
+add_action('woocommerce_before_cart', 'check_and_remove_coupons_based_on_cookie');
+add_action('woocommerce_before_checkout_form', 'check_and_remove_coupons_based_on_cookie');
 
-			if ($eilat_stock <= 0 || $eilat_stock < $cart_item['quantity']) {
-				wc_add_notice(sprintf(__('מצטערים, המוצר "%s" אינו זמין באילת כרגע.', 'textdomain'), $cart_item['data']->get_name()), 'error');
-			}
+function check_and_remove_coupons_based_on_cookie()
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		// Check if there are any coupons applied
+		if (!is_admin() && WC()->cart && WC()->cart->has_discount()) {
+			WC()->cart->remove_coupons();
+
+			// Add a notice to inform the user
+			wc_add_notice(__('הקופון הוסר מההזמנה, קופוני האתר אינם תקפים בהזמנת איסוף מאילת', 'woocommerce'), 'notice');
+		}
+	}
+}
+
+add_filter('woocommerce_coupons_enabled', 'disable_coupons_based_on_cookie');
+function disable_coupons_based_on_cookie($enabled)
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		$enabled = false;
+	}
+	return $enabled;
+}
+
+//ajax toggleCoupon
+add_action('wp_ajax_remove_coupon', 'remove_coupon');
+add_action('wp_ajax_nopriv_remove_coupon', 'remove_coupon');
+function remove_coupon()
+{
+	//remove all coupons
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		if (WC()->cart->has_discount()) {
+			WC()->cart->remove_coupons();
+			wc_clear_notices();
+			wc_add_notice(__('הקופון הוסר מההזמנה, קופוני האתר אינם תקפים בהזמנת איסוף מאילת', 'woocommerce'), 'success');
+			// wp_send_json_success('הקופון הוסר מההזמנה, קופוני האתר אינם תקפים בהזמנת איסוף מאילת');
+			wp_die();
+		}
+	}
+
+	wp_send_json_error();
+	wp_die();
+}
+
+
+add_filter('woocommerce_get_terms_and_conditions_checkbox_text', 'custom_terms_conditions_text');
+
+function custom_terms_conditions_text($text)
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		$new_url = 'https://lego.certifiedstore.co.il/eis-eilat'; // Change this to your desired URL
+		$new_text = '<a href="' . esc_url($new_url) . '" class="woocommerce-terms-and-conditions-link" target="_blank">קראתי ואני מסכים לתנאי השימוש באתר ולתנאי איסוף באילת</a>'; // Change this to your desired text
+		return $new_text;
+	}
+	return $text;
+}
+
+
+//check eilat inventory on checkout process
+add_action('woocommerce_checkout_process', 'validate_product_categories_during_checkout', 1);
+function validate_product_categories_during_checkout()
+{
+	if (!get_cookie_eilat_mode()) {
+		return;
+	}
+	
+	$cart_items = WC()->cart->get_cart();
+	
+	// Prime meta cache for all products at once
+	$product_ids = wp_list_pluck($cart_items, 'product_id');
+	if (!empty($product_ids)) {
+		update_meta_cache('post', $product_ids);
+		// Prime term cache
+		update_object_term_cache($product_ids, 'product');
+	}
+	
+	$min_stock = get_eilat_min_stock_cached();
+	
+	foreach ($cart_items as $cart_item) {
+		$product_id = $cart_item['product_id'];
+		$product_categories = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'slugs']);
+
+		if (in_array('coming-soon', $product_categories)) {
+			wc_add_notice(__('מוצר זה לא ניתן לרכישה.', 'woocommerce'), 'error');
 		}
 
-		   $fields_to_unset = [
-            'billing_address_1',
-            'billing_address_2',
-            'billing_address_3',
-            'billing_city',
-            'billing_state',
-            'billing_postcode',
-            // 'billing_country'
-        ];
+		// Existing stock validation logic
+		$eilat_stock = get_post_meta($product_id, 'eilat_stock', true);
+		if (($eilat_stock <= $min_stock || $eilat_stock < $cart_item['quantity']) && !has_term('gwp', 'product_cat', $product_id)) {
+			wc_add_notice(sprintf(__('למוצר %s אין מספיק יחידות במלאי באילת, יש לעדכן את הכמות בעגלת הקניות.', 'woocommerce'), $cart_item['data']->get_name()), 'error');
+		}
+	}
 
-        // Loop through each field and unset it
-        foreach ($fields_to_unset as $field) {
-            if (isset($_POST[$field])) {
-                unset($_POST[$field]);
-            }
-        }
+	$fields_to_unset = [
+		'billing_address_1',
+		'billing_address_2',
+		'billing_address_3',
+		'billing_city',
+		'billing_state',
+		'billing_postcode',
+	];
+
+	foreach ($fields_to_unset as $field) {
+		if (isset($_POST[$field])) {
+			unset($_POST[$field]);
+		}
 	}
 }
 
 
+add_filter('woocommerce_checkout_fields', 'custom_override_checkout_fields');
+function custom_override_checkout_fields($fields)
+{
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		$fields_to_disable = [
+			'billing_address_1',
+			'billing_address_2',
+			'billing_address_3',
+			'billing_city',
+			'billing_state',
+			'billing_postcode',
+			// 'billing_country'
+		];
+
+		foreach ($fields_to_disable as $field_key) {
+			if (isset($fields['billing'][$field_key])) {
+				$fields['billing'][$field_key]['required'] = false;
+			}
+		}
+	}
+	return $fields;
+}
+
+
+function get_eilat_min_stock()
+{
+	return get_eilat_min_stock_cached();
+}
 
 add_filter('woocommerce_loop_add_to_cart_args', 'filter_woocommerce_loop_add_to_cart_args', 10, 2);
 function filter_woocommerce_loop_add_to_cart_args($args, $product)
 {
 	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
 		$args['class'] = 'eilat-button';
-		$args['attributes']['eilat-stock'] = $product->get_meta('eilat_stock') > 0 ? 'true' : 'false';
+		$args['attributes']['eilat-stock'] = $product->get_meta('eilat_stock') > get_eilat_min_stock() ? 'true' : 'false';
 	}
 	return $args;
 }
@@ -526,8 +965,10 @@ function add_eilat_stock_to_cart_item($cart_item_data, $product_id, $variation_i
 add_action('woocommerce_checkout_create_order_line_item', 'save_eilat_stock_order_item_meta', 10, 4);
 function save_eilat_stock_order_item_meta($item, $cart_item_key, $values, $order)
 {
-	if (!empty($values['eilat_stock'])) {
-		$item->add_meta_data('eilat_stock', $values['eilat_stock']);
+	if (isset($_COOKIE['eilatMode']) && 'true' === $_COOKIE['eilatMode']) {
+		if (!empty($values['eilat_stock'])) {
+			$item->add_meta_data('eilat_stock', $values['eilat_stock']);
+		}
 	}
 }
 
@@ -540,10 +981,14 @@ function display_eilat_stock_admin_order_item($product, $item, $item_id)
 	}
 }
 
-// Saving Eilat Mode to Order Meta
+// Saving Eilat Mode to Order Meta - HPOS compatible
 add_action('woocommerce_checkout_update_order_meta', function ($order_id) {
 	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
-		update_post_meta($order_id, '_eilat_mode', 'yes');
+		$order = wc_get_order($order_id);
+		if ($order) {
+			$order->update_meta_data('_eilat_mode', 'yes');
+			$order->save();
+		}
 	}
 });
 
@@ -559,8 +1004,8 @@ function eilat_add_to_cart_button($product)
 	global $product;
 	$product_id = $product->get_id();
 	$sku = $product->get_sku();
-	$eilat_stock = $product->get_meta('eilat_stock') > 0 ? 'true' : 'false';
-	if ($product->get_meta('eilat_stock') == 0) {
+	$eilat_stock = $product->get_meta('eilat_stock') > get_eilat_min_stock() ? 'true' : 'false';
+	if ($product->get_meta('eilat_stock') < get_eilat_min_stock()) {
 		$disabled = 'disabled';
 	} else {
 		$disabled = '';
@@ -570,13 +1015,13 @@ function eilat_add_to_cart_button($product)
                     type="button"
                     data-product_id="$product_id" eilat-stock="$eilat_stock"
                     data-product_sku="$sku" data-quantity="1"
-                    class="eilat-button btn btn-danger col-10 fw-bold pb-3 pe-5 ps-5 pt-3 rounded rounded-1 text-md-center text-start wp-block-button__link" $disabled
+                    class="eilat-button btn btn-danger col-10 fw-bold pb-3 pe-5 ps-5 pt-3 rounded rounded-1 text-center w-100 wp-block-button__link" $disabled
                 >
-                    הזמנה מאילת
+                    הזמנה בחנות לגו אילת
                 </button>
          HTML;
 
-	if ($product->get_meta('eilat_stock') == 0) {
+	if ($product->get_meta('eilat_stock') < get_eilat_min_stock()) {
 		echo '<div class="text-danger w-100 d-block">מוצר זה אינו זמין להזמנה מסניף אילת</div>';
 	}
 }
@@ -585,7 +1030,7 @@ function eilat_add_to_cart_button($product)
 function check_if_product_is_in_eilat_stock($product)
 {
 	$eilat_stock = $product->get_meta('eilat_stock');
-	if (!empty($eilat_stock) && $eilat_stock > 0) {
+	if (!empty($eilat_stock) && $eilat_stock > get_eilat_min_stock()) {
 		return true;
 	}
 	return false;
@@ -596,6 +1041,7 @@ function add_product_to_eilat()
 {
 	$product_id = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
 	$quantity = isset($_POST['quantity']) ? absint($_POST['quantity']) : 1;
+	$override = isset($_POST['override']) ? filter_var($_POST['override'], FILTER_VALIDATE_BOOLEAN) : false;
 	$cart_item_data = array(
 		'eilat' => true
 	);
@@ -617,7 +1063,17 @@ function add_product_to_eilat()
 		// Find the cart item key in the existing cart.
 		$cart_item_key = $cart->find_product_in_cart($cart_id);
 
-
+		// Check if product exists and the override flag wasn't set
+		if ($cart_item_key && !$override) {
+			// Product already exists in cart and no override flag
+			// Return a special response asking for confirmation
+			wp_send_json(array(
+				'success' => false,
+				'product_exists' => true,
+				'product_name' => $product_data->get_name()
+			));
+			return;
+		}
 
 		if (!check_if_product_is_in_eilat_stock($product_data)) {
 			/* translators: %s: product name */
@@ -663,11 +1119,26 @@ function add_product_to_eilat()
 		$cart->cart_contents = apply_filters('woocommerce_cart_contents_changed', $cart->cart_contents);
 
 		do_action('woocommerce_add_to_cart', $cart_item_key, $product_id, $quantity, 0, array(), $cart_item_data);
-		// setcookie('eilatMode', 'true', time() + HOUR_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN);
-		return WC_AJAX::get_refreshed_fragments();
+		
+		// Trigger AJAX added to cart action for side cart compatibility
+		do_action('woocommerce_ajax_added_to_cart', $product_id);
+		
+		// Get refreshed fragments
+		$fragments_data = WC_AJAX::get_refreshed_fragments();
+		
+		// Return successful response with fragments and cart_hash
+		wp_send_json(array(
+			'success' => true,
+			'fragments' => $fragments_data['fragments'],
+			'cart_hash' => $fragments_data['cart_hash']
+		));
+		return;
 	} catch (Exception $e) {
 		if ($e->getMessage()) {
-			// wc_add_notice($e->getMessage(), 'error');
+			wp_send_json(array(
+				'success' => false,
+				'error' => $e->getMessage()
+			));
 		}
 		return false;
 	}
@@ -720,15 +1191,16 @@ function disable_check_cart_item_stock($check, $cart_item, $cart_item_key)
 add_filter('woocommerce_add_error', 'remove_out_of_stock_error', 10, 1);
 function remove_out_of_stock_error($error)
 {
-
-	if ((strpos($error, __('מצטערים, אין לנו מספיק', 'woocommerce')) !== false || strpos($error, __('is not in stock', 'woocommerce')) !== false) || strpos($error, __('אין מספיק יחידות', 'woocommerce')) !== false || strpos($error, __('לא במלאי', 'woocommerce')) !== false) {
-		$cart = WC()->cart;
-		$cart_items = $cart->get_cart();
-		foreach ($cart_items as $cart_item) {
-			if (isset($cart_item['eilat'])) {
-				$name = $cart_item['data']->get_name();
-				if (strpos($error, $name) !== false) {
-					return '';
+	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+		if ((strpos($error, __('מצטערים, אין לנו מספיק', 'woocommerce')) !== false || strpos($error, __('is not in stock', 'woocommerce')) !== false) || strpos($error, __('אין מספיק יחידות', 'woocommerce')) !== false || strpos($error, __('לא במלאי', 'woocommerce')) !== false) {
+			$cart = WC()->cart;
+			$cart_items = $cart->get_cart();
+			foreach ($cart_items as $cart_item) {
+				if (isset($cart_item['eilat'])) {
+					$name = $cart_item['data']->get_name();
+					if (strpos($error, $name) !== false) {
+						return '';
+					}
 				}
 			}
 		}
@@ -739,109 +1211,108 @@ function remove_out_of_stock_error($error)
 }
 
 // Process the order when the custom checkout button is clicked
-add_action('wp_ajax_eilat_process_order', 'process_eilat_order');
-add_action('wp_ajax_nopriv_eilat_process_order', 'process_eilat_order');
-function process_eilat_order()
-{
-	if (WC()->cart->is_empty()) {
-		wp_send_json_error('Cart is empty.');
-		wp_die();
-	}
+// add_action('wp_ajax_eilat_process_order', 'process_eilat_order');
+// add_action('wp_ajax_nopriv_eilat_process_order', 'process_eilat_order');
+// function process_eilat_order()
+// {
+// 	if (WC()->cart->is_empty()) {
+// 		wp_send_json_error('Cart is empty.');
+// 		wp_die();
+// 	}
 
-	if (!isset($_POST['order_data'])) {
-		wp_send_json_error(['message' => 'Order data is missing.']);
-		wp_die();
-	}
+// 	if (!isset($_POST['order_data'])) {
+// 		wp_send_json_error(['message' => 'Order data is missing.']);
+// 		wp_die();
+// 	}
 
-	parse_str($_POST['order_data'], $order_data);
-	// Set billing from the $order_data array
-	$billing_address = [
-		'first_name' => $order_data['billing_first_name'],
-		'last_name'  => $order_data['billing_last_name'],
-		'email'      => $order_data['billing_email'],
-		'phone'      => $order_data['billing_phone'],
-		'address_1'  => $order_data['billing_address_1'],
-		'address_2'  => $order_data['billing_address_2'],
-		'city'       => $order_data['billing_city'],
-		'state'      => $order_data['billing_state'],
-		// 'h_deliverydate_0' => $order_data['h_deliverydate_0'],
-		'e_deliverydate_0' => $order_data['e_deliverydate_0'],
-		'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
-		'_orddd_timestamp' => $order_data['_orddd_timestamp'],
-	];
+// 	parse_str($_POST['order_data'], $order_data);
+// 	// Set billing from the $order_data array
+// 	$billing_address = [
+// 		'first_name' => $order_data['billing_first_name'],
+// 		'last_name'  => $order_data['billing_last_name'],
+// 		'email'      => $order_data['billing_email'],
+// 		'phone'      => $order_data['billing_phone'],
+// 		'address_1'  => $order_data['billing_address_1'],
+// 		'address_2'  => $order_data['billing_address_2'],
+// 		'city'       => $order_data['billing_city'],
+// 		'state'      => $order_data['billing_state'],
+// 		// 'h_deliverydate_0' => $order_data['h_deliverydate_0'],
+// 		'e_deliverydate_0' => $order_data['e_deliverydate_0'],
+// 		'orddd_time_slot_0' => $order_data['orddd_time_slot_0'],
+// 		'_orddd_timestamp' => $order_data['_orddd_timestamp'],
+// 	];
 
-	if (get_option('delivery_date_status') == 'on') {
-		$billing_address['order_delivery_date'] = $order_data['order_delivery_date'];
-		$billing_address['order_delivery_time'] = $order_data['order_delivery_time'];
-	}
+// 	if (get_option('delivery_date_status') == 'on') {
+// 		$billing_address['order_delivery_date'] = $order_data['order_delivery_date'];
+// 		$billing_address['order_delivery_time'] = $order_data['order_delivery_time'];
+// 	}
 
-	//check if terms_field is checked
-	if (!isset($order_data['terms'])) {
-		wp_send_json_error(['message' => 'יש לאשר את תנאי השימוש ומדיניות הפרטיות.']);
-		wp_die();
-	}
+// 	//check if terms_field is checked
+// 	if (!isset($order_data['terms'])) {
+// 		wp_send_json_error(['message' => 'יש לאשר את תנאי השימוש ומדיניות הפרטיות.']);
+// 		wp_die();
+// 	}
 
-	//validate billing_address	
-	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'e_deliverydate_0', 'orddd_time_slot_0'];
-	if (get_option('delivery_date_status') == 'on') {
-		$required_fields[] = 'order_delivery_date';
-		$required_fields[] = 'order_delivery_time';
-	}
-	$empty_fields = [];
-	foreach ($required_fields as $field) {
-		if (empty($billing_address[$field])) {
-			$empty_fields[] = $field;
-		}
-	}
-	if (!empty($empty_fields)) {
-		$field_names = [
-			'first_name' => 'שם פרטי',
-			'last_name' => 'שם משפחה',
-			'email' => 'אימייל',
-			'phone' => 'טלפון',
-			'e_deliverydate_0' => 'תאריך איסוף',
-			'orddd_time_slot_0' => 'שעת איסוף',
-			'order_delivery_date' => 'תאריך איסוף',
-			'order_delivery_time' => 'שעת איסוף'
-		];
-		$missing_fields_list = array_map(function ($field) use ($field_names) {
-			return $field_names[$field] ?? $field;  // This will use the custom field name if available, or default to the key
-		}, $empty_fields);
+// 	//validate billing_address	
+// 	$required_fields = ['first_name', 'last_name', 'email', 'phone', 'e_deliverydate_0', 'orddd_time_slot_0'];
+// 	if (get_option('delivery_date_status') == 'on') {
+// 		$required_fields[] = 'order_delivery_date';
+// 		$required_fields[] = 'order_delivery_time';
+// 	}
+// 	$empty_fields = [];
+// 	foreach ($required_fields as $field) {
+// 		if (empty($billing_address[$field])) {
+// 			$empty_fields[] = $field;
+// 		}
+// 	}
+// 	if (!empty($empty_fields)) {
+// 		$field_names = [
+// 			'first_name' => 'שם פרטי',
+// 			'last_name' => 'שם משפחה',
+// 			'email' => 'אימייל',
+// 			'phone' => 'טלפון',
+// 			'e_deliverydate_0' => 'תאריך איסוף',
+// 			'orddd_time_slot_0' => 'שעת איסוף',
+// 			'order_delivery_date' => 'תאריך איסוף',
+// 			'order_delivery_time' => 'שעת איסוף'
+// 		];
+// 		$missing_fields_list = array_map(function ($field) use ($field_names) {
+// 			return $field_names[$field] ?? $field;  // This will use the custom field name if available, or default to the key
+// 		}, $empty_fields);
 
-		$error_message = 'יש למלא את השדות הבאים:';
-		wp_send_json_error(['message' => $error_message, 'error' =>  implode(', ', $missing_fields_list)]);		// return WC_AJAX::get_refreshed_fragments();
-	}
+// 		$error_message = 'יש למלא את השדות הבאים:';
+// 		wp_send_json_error(['message' => $error_message, 'error' =>  implode(', ', $missing_fields_list)]);		// return WC_AJAX::get_refreshed_fragments();
+// 	}
 
-	$order = wc_create_order();
+// 	$order = wc_create_order();
 
-	$cart_items = WC()->cart->get_cart();
+// 	$cart_items = WC()->cart->get_cart();
 
-	foreach ($cart_items as $cart_item_key => $cart_item) {
-		$product = $cart_item['data'];
-		$quantity = $cart_item['quantity'];
+// 	foreach ($cart_items as $cart_item_key => $cart_item) {
+// 		$product = $cart_item['data'];
+// 		$quantity = $cart_item['quantity'];
 
-		if (is_a($product, 'WC_Product')) {
-			$order->add_product($product, $quantity);
-		}
-	}
+// 		if (is_a($product, 'WC_Product')) {
+// 			$order->add_product($product, $quantity);
+// 		}
+// 	}
 
-	$order->set_address($billing_address, 'billing');
+// 	$order->set_address($billing_address, 'billing');
 
-	$order->set_payment_method('cod'); // Assuming cash on delivery
-	$order->calculate_totals(false);
-	$order->update_meta_data('order_delivery_date', date('d/m/Y', strtotime($order_data['e_deliverydate_0'])));
-	$order->update_meta_data('e_deliverydate_0', date('d/m/Y', strtotime($order_data['e_deliverydate_0'])));
-	$order->update_meta_data('order_delivery_time', $order_data['orddd_time_slot_0']);
-	$order->update_meta_data('_orddd_timestamp', $order_data['orddd_time_slot_0']);
-	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
-	$order->save();
+// 	$order->set_payment_method('cod'); // Assuming cash on delivery
+// 	$order->calculate_totals(false);
+// 	$order->update_meta_data('order_delivery_date', date('d/m/Y', strtotime($order_data['e_deliverydate_0'])));
+// 	$order->update_meta_data('e_deliverydate_0', date('d/m/Y', strtotime($order_data['e_deliverydate_0'])));
+// 	$order->update_meta_data('order_delivery_time', $order_data['orddd_time_slot_0']);
+// 	$order->update_meta_data('_orddd_timestamp', $order_data['orddd_time_slot_0']);
+// 	$order->update_status('eilat-pickup', 'הזמנה לאיסוף מאילת');
+// 	$order->save();
 
-	$redirect_url = $order->get_checkout_order_received_url();
+// 	$redirect_url = $order->get_checkout_order_received_url();
 
-	wp_send_json_success(['order_id' => $order->get_id(), 'redirect_url' => $redirect_url]);
-	wp_die();
-}
-add_action('woocommerce_order_status_eilat-pickup', 'send_eilat_order_email', 10, 1);
+// 	wp_send_json_success(['order_id' => $order->get_id(), 'redirect_url' => $redirect_url]);
+// 	wp_die();
+// }
 function send_eilat_order_email($order_id)
 {
 	$order = wc_get_order($order_id);
@@ -849,7 +1320,7 @@ function send_eilat_order_email($order_id)
 	$delivery_date = $order->get_meta('order_delivery_date');
 	$delivery_time = $order->get_meta('order_delivery_time');
 
-	$subject = 'הזמנה חדשה מאילת #' . $order_id;
+	$subject = 'הזמנה חדשה מאילת #' . $order->get_order_number();
 	$headers = 'From: ' . get_bloginfo('name') . ' <' . get_bloginfo('admin_email') . '>' . PHP_EOL;
 	$headers .= 'Content-Type: text/html; charset=UTF-8' . PHP_EOL;
 
@@ -940,14 +1411,14 @@ function send_eilat_order_email($order_id)
 								<p style="margin: 0;">שם: <?php echo $billing_address['first_name'] . ' ' . $billing_address['last_name']; ?></p>
 								<p style="margin: 0;">טלפון: <?php echo $billing_address['phone']; ?></p>
 								<p style="margin: 0;">אימייל: <?php echo $billing_address['email']; ?></p>
-								<p style="margin: 0;">תאריך איסוף: <?php echo $delivery_date; ?></p>
+								<p style="margin: 0;">תאריך איסוף: <?php echo $order->get_meta('order_delivery_date'); ?></p>
 								<p style="margin: 0;">שעת איסוף: <?php echo $delivery_time; ?></p>
 							</td>
 						</tr>
 						<tr>
 							<td align="center" bgcolor="#ffffff" style="padding: 24px; font-family: 'Arial', sans-serif; font-size: 16px; line-height: 24px;">
 								<h2 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -1px; line-height: 36px;">
-									פרטי הזמנה מס׳ #<?php echo $order_id; ?>
+									פרטי הזמנה מס׳ #<?php echo $order->get_order_number() ?>
 								</h2>
 							</td>
 						</tr>
@@ -993,6 +1464,8 @@ function send_eilat_order_email($order_id)
 	$message = ob_get_clean(); // Store the contents of the buffer in $message
 	// Send the email
 	$to = get_option('email_to');
+	$to = explode(',', $to);
+
 	wp_mail($to, $subject, $message, $headers);
 }
 
@@ -1002,65 +1475,101 @@ add_action('woocommerce_thankyou', 'custom_thankyou_page');
 function custom_thankyou_page($order_id)
 {
 	$order = wc_get_order($order_id);
+	$delivery_date = $order->get_meta('order_delivery_date');
+	$delivery_time = $order->get_meta('order_delivery_time');
 	if ($order->get_status() === 'eilat-pickup') {
-		echo '<h2>הזמנתך נקלטה בהצלחה והועברה לטיפול</h2>';
-		echo '<h2>יש להמתין למסרון המודיע על כך שההזמנה מוכנה לאיסוף בסניף</h2>';
+		echo '<h3 class="mb-4">יש להמתין למסרון המודיע על כך שההזמנה מוכנה לאיסוף בסניף</h3>';
+		echo '<h3>פרטי איסוף</h3>';
+		echo '<table class="shop_table order_details">
+		<tbody>
+			<tr class="order">
+				<th>תאריך איסוף:</th>
+				<td>' . $delivery_date . '</td>
+			</tr>
+			<tr class="order">
+				<th>שעת איסוף:</th>
+				<td>' . $delivery_time . '</td>
+			</tr>';
+		echo '</tbody></table>';
+		send_eilat_order_email($order_id);
 	}
 }
 
-// check stock ajax function
+// add_action('woocommerce_order_details_after_customer_details', 'display_custom_field_after_customer_details', 10, 1);
+// function display_custom_field_after_customer_details($order)
+// {
+// 	if ($order->get_status() === 'eilat-pickup') {
+// 		$delivery_date = $order->get_meta('order_delivery_date');
+// 		$delivery_time = $order->get_meta('order_delivery_time');
+// 			echo '<h3>פרטי איסוף</h3>';
+// 			echo '<p>תאריך איסוף: ' . $delivery_date . '</p>';
+// 			echo '<p>שעת איסוף: ' . $delivery_time . '</p>';
+// 	}
+// }
+
+// Remove the "Pay with cash upon delivery" text from the thank you page
+add_action('wp', 'remove_cod_payment_text_thank_you_page');
+
+function remove_cod_payment_text_thank_you_page()
+{
+	if (is_wc_endpoint_url('order-received')) {
+		remove_action('woocommerce_thankyou_cod', 'woocommerce_cod_thankyou', 10);
+	}
+}
+
+
+// check stock ajax function (legacy - kept for backwards compatibility, prefer REST API)
 add_action('wp_ajax_check_stock', 'check_stock');
 add_action('wp_ajax_nopriv_check_stock', 'check_stock');
+
 function check_stock()
 {
-	$eilatMode = $_COOKIE['eilatMode'] === 'true';
-	// $eilatMode = false;
+	$eilatMode = get_cookie_eilat_mode();
 	$cartItems = WC()->cart->get_cart();
-	foreach ($cartItems as $cart_item) {
+	$gwpInCart = false;
+	
+	// Prime meta cache for all products at once
+	$product_ids = wp_list_pluck($cartItems, 'product_id');
+	if (!empty($product_ids)) {
+		update_meta_cache('post', $product_ids);
+	}
+	
+	$min_stock = get_eilat_min_stock_cached();
 
-		// Common data for both modes.
+	foreach ($cartItems as $cart_item) {
 		$productID = $cart_item['product_id'];
 		$quantity = $cart_item['quantity'];
+		$product = $cart_item['data']; // Use data from cart instead of fetching again
+
+		if ($product && has_term('gwp', 'product_cat', $productID)) {
+			$gwpInCart = true;
+			continue;
+		}
+
 		if ($eilatMode) {
-
-			// Eilat-specific stock check.
 			$eilatStock = (int) get_post_meta($productID, 'eilat_stock', true);
-			if ($eilatStock <= 0 || $eilatStock < $quantity) {
-				wp_send_json_error('מצטערים, אין מספיק מלאי למוצר זה באילת.');
-				wp_die(); // Ensure execution stops after sending error.
+			if ($eilatStock <= $min_stock || $eilatStock < $quantity) {
+				wp_send_json_error('למוצר ' . $product->get_name() . ' אין מספיק יחידות במלאי באילת, יש לעדכן את הכמות בעגלת הקניות.');
+				wp_die();
 			}
-			wp_send_json_success('Eilat stock is available.');
 		} else {
-			// Regular stock check now validated by SKU.
-
-			$product = wc_get_product($productID);
-			if ($product) {
-
-				$sku = $product->get_sku();
-				$productBySKU = wc_get_product_id_by_sku($sku);
-				if ($productBySKU) {
-					$productToCheck = wc_get_product($productBySKU);
-					if (!$productToCheck->is_in_stock()) {
-						wp_send_json_error('מצטערים, אין מספיק מלאי למוצר ' . $productToCheck->get_name() . ' באילת.');
-						wp_die(); // Ensure execution stops after sending error.
-					}
-				} else {
-					// Handle case where no product is found by SKU.
-					wp_send_json_error('Sorry, no product found with the given SKU.');
-					wp_die();
-				}
-			} else {
-				// Handle case where product ID does not return a product.
-				wp_send_json_error('Sorry, the product could not be found.');
+			if ($product && !$product->is_in_stock()) {
+				wp_send_json_error('מצטערים, אין מספיק מלאי למוצר "' . $product->get_name() . '".');
 				wp_die();
 			}
 		}
 	}
 
-	wp_send_json_success('All items in stock.');
+	if ($gwpInCart) {
+		wp_send_json_success(['message' => 'קבלת המתנה מותנית במלאי המוצר בסניף אילת', 'gwpInCart' => true]);
+		wp_die();
+	}
 
-	wp_die(); // If no issues were found, safely end execution.
+	wp_send_json_success('All items in stock.');
+	wp_die();
 }
+
+
 
 add_filter('orddd_disable_delivery_for_user_roles', 'orddd_disable_delivery_for_user_roles_function');
 function orddd_disable_delivery_for_user_roles_function($roles)
@@ -1072,6 +1581,7 @@ function orddd_disable_delivery_for_user_roles_function($roles)
 	}
 	return $roles;
 }
+
 
 // clear cart ajax function
 add_action('wp_ajax_clear_cart', 'clear_cart');
@@ -1086,20 +1596,13 @@ function clear_cart()
 }
 
 
-add_action('wp_footer', 'add_eilat_banner');
+// add_action('wp_footer', 'add_eilat_banner');
 function add_eilat_banner()
 {
 	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') : ?>
-		<div class="eilat-banner d-flex justify-content-center align-items-center p-2 gap-3" style="
-    position: fixed;
-    z-index: 9;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    background-color: green;
-">
+		<div class="eilat-banner d-flex justify-content-center align-items-center p-2 gap-3">
 			<p class="text-center text-light mb-0">
-				הנכם נמצאים בתהליך הזמנה מסניף אילת
+				הנכם נמצאים בתהליך הזמנה בסניף ביג אילת
 			</p>
 			<button class="btn btn-danger text-light btn-sm" id="exit-eilat-mode">
 				ליציאה מתהליך זה
@@ -1114,14 +1617,14 @@ function add_custom_checkout_fields_between_shipping_and_payment($checkout)
 	if (!is_a($checkout, 'WC_Checkout')) {
 		$checkout = WC()->checkout();
 	}
-	echo '<div id="custom_delivery_details" style="display:none;"><h3>' . __('Delivery Details') . '</h3>';
+	echo '<div id="custom_delivery_details" style="display:none;"><h3>' . __('בחירת מועד איסוף') . '</h3>';
 
 	// Delivery Date Field
 	woocommerce_form_field('order_delivery_date', array(
 		'type'          => 'text',
 		'class'         => array('order-delivery-date form-row-wide'),
-		'label'         => __('Delivery Date'),
-		'required'      => false,  // Initially not required
+		'label'         => __('תאריך איסוף'),
+		'required'      => true,  // Initially not required
 	), $checkout->get_value('order_delivery_date'));
 
 	// Delivery Time Field
@@ -1129,11 +1632,7 @@ function add_custom_checkout_fields_between_shipping_and_payment($checkout)
 		'type'          => 'select',
 		'class'         => array('order-delivery-time form-row-wide'),
 		'options'				=> array(
-			'' => 'בחר זמן משלוח',
-			'9:00 - 9:30' => '9:00 - 9:30',
-			'9:30 - 10:00' => '9:30 - 10:00',
-			'10:00 - 10:30' => '10:00 - 10:30',
-			'10:30 - 11:00' => '10:30 - 11:00',
+			'' => 'שעת איסוף',
 			'11:00 - 11:30' => '11:00 - 11:30',
 			'11:30 - 12:00' => '11:30 - 12:00',
 			'12:00 - 12:30' => '12:00 - 12:30',
@@ -1148,23 +1647,54 @@ function add_custom_checkout_fields_between_shipping_and_payment($checkout)
 			'16:30 - 17:00' => '16:30 - 17:00',
 			'17:00 - 17:30' => '17:00 - 17:30',
 			'17:30 - 18:00' => '17:30 - 18:00',
+			'18:00 - 18:30' => '18:00 - 18:30',
+			'18:30 - 19:00' => '18:30 - 19:00',
+			'19:00 - 19:30' => '19:00 - 19:30',
+			'19:30 - 20:00' => '19:30 - 20:00',
+			'20:00 - 20:30' => '20:00 - 20:30',
+			'20:30 - 21:00' => '20:30 - 21:00',
 		),
 		'label'         => '',
 		'placeholder'     => '',
-		'required'      => false,  // Initially not required
+		'required'      => true,  // Initially not required
 	), $checkout->get_value('order_delivery_time'));
 
 	echo '</div>';
 }
 
+add_action('woocommerce_checkout_process', 'custom_checkout_field_process');
+function custom_checkout_field_process()
+{
+	$eilatMode = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
+	if (isset($_POST['order_delivery_date']) && empty($_POST['order_delivery_date']) && $eilatMode) {
+		wc_add_notice(__('יש לבחור תאריך איסוף'), 'error');
+	}
+	if (isset($_POST['order_delivery_time']) && empty($_POST['order_delivery_time']) && $eilatMode) {
+		wc_add_notice(__('יש לבחור שעת איסוף'), 'error');
+	}
+}
+
 function save_custom_checkout_fields($order_id)
 {
+	$order = wc_get_order($order_id);
+	if (!$order) {
+		return;
+	}
+	
+	$updated = false;
+	
 	if (isset($_POST['order_delivery_date']) && !empty($_POST['order_delivery_date'])) {
-		update_post_meta($order_id, 'order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
+		$order->update_meta_data('order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
+		$updated = true;
 	}
 
 	if (isset($_POST['order_delivery_time']) && !empty($_POST['order_delivery_time'])) {
-		update_post_meta($order_id, 'order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
+		$order->update_meta_data('order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
+		$updated = true;
+	}
+	
+	if ($updated) {
+		$order->save();
 	}
 }
 
@@ -1172,12 +1702,12 @@ function display_editable_custom_fields_in_order_admin($order)
 {
 	wp_nonce_field('update_order_delivery_time', 'custom_fields_nonce');
 
-	// Display a text input for delivery time
-	$delivery_time = get_post_meta($order->get_id(), 'order_delivery_time', true);
-	$delivery_date = get_post_meta($order->get_id(), 'order_delivery_date', true);
+	// Display a text input for delivery time - HPOS compatible
+	$delivery_time = $order->get_meta('order_delivery_time', true);
+	$delivery_date = $order->get_meta('order_delivery_date', true);
 
-	echo '<div class="form-field form-field-wide"><h4>Delivery Date</h4>';
-	echo '<input type="text" id="order_delivery_date" name="order_delivery_date" value="' . esc_attr($delivery_date) . '">';
+	echo '<div class="form-field form-field-wide"><h4>בחירת מועד איסוף</h4>';
+	echo '<input type="text" id="order_delivery_date" name="order_delivery_date" placeholder="בחירת תאריך איסוף" value="' . esc_attr($delivery_date) . '">';
 	echo '</div>';
 
 	echo '<div class="form-field form-field-wide"><h4>Delivery Time</h4>';
@@ -1185,10 +1715,10 @@ function display_editable_custom_fields_in_order_admin($order)
 	echo '</div>';
 }
 
-function save_custom_fields_on_admin_order_save($post_id, $post)
+function save_custom_fields_on_admin_order_save($order_id, $post = null)
 {
 	// Check user capabilities
-	if (!current_user_can('edit_shop_orders', $post_id)) {
+	if (!current_user_can('edit_shop_orders', $order_id)) {
 		return;
 	}
 
@@ -1197,21 +1727,34 @@ function save_custom_fields_on_admin_order_save($post_id, $post)
 		return;
 	}
 
+	// HPOS compatible - get order object
+	$order = wc_get_order($order_id);
+	if (!$order) {
+		return;
+	}
+	
+	$updated = false;
+
 	// Sanitize and save the field if it's set
 	if (isset($_POST['order_delivery_time'])) {
-		update_post_meta($post_id, 'order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
+		$order->update_meta_data('order_delivery_time', sanitize_text_field($_POST['order_delivery_time']));
+		$updated = true;
 	}
 	if (isset($_POST['order_delivery_date'])) {
-		update_post_meta($post_id, 'order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
+		$order->update_meta_data('order_delivery_date', sanitize_text_field($_POST['order_delivery_date']));
+		$updated = true;
+	}
+	
+	if ($updated) {
+		$order->save();
 	}
 }
 
-if (get_option('delivery_date_status') == 'on') {
-	add_action('woocommerce_process_shop_order_meta', 'save_custom_fields_on_admin_order_save', 10, 2);
-	add_action('woocommerce_admin_order_data_after_billing_address', 'display_editable_custom_fields_in_order_admin');
-	add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');
-	add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_fields_between_shipping_and_payment');
-}
+// Always register these hooks for Eilat mode delivery date/time
+add_action('woocommerce_process_shop_order_meta', 'save_custom_fields_on_admin_order_save', 10, 2);
+add_action('woocommerce_admin_order_data_after_billing_address', 'display_editable_custom_fields_in_order_admin');
+add_action('woocommerce_checkout_update_order_meta', 'save_custom_checkout_fields');
+add_action('woocommerce_review_order_before_payment', 'add_custom_checkout_fields_between_shipping_and_payment');
 
 
 function my_custom_plugin_override_template($template, $template_name, $template_path)
@@ -1235,4 +1778,232 @@ function my_custom_plugin_override_template($template, $template_name, $template
 	// Return default template
 	return $template;
 }
-add_filter('woocommerce_locate_template', 'my_custom_plugin_override_template', 10, 3);
+// add_filter('woocommerce_locate_template', 'my_custom_plugin_override_template', 10, 3);
+
+
+// add custom order item checkbox
+add_action('woocommerce_admin_order_item_headers', 'add_custom_order_item_header');
+function add_custom_order_item_header($order)
+{
+	if ($order->get_status() !== 'eilat-pickup') {
+		return;
+	}
+	echo '<th class="eilat_order_item_checkbox">במלאי אילת</th>'; // Add your custom column header
+}
+
+// Add the custom field value to the order items
+add_action('woocommerce_admin_order_item_values', 'add_custom_order_item_value', 10, 3);
+function add_custom_order_item_value($product, $item, $item_id)
+{
+	$order = wc_get_order($item->get_order_id());
+	$checked = wc_get_order_item_meta($item_id, '_eilat_order_item_checkbox', true) === 'yes' ? 'checked' : '';
+	if ($order->get_status() !== 'eilat-pickup') {
+		return;
+	}
+	if (is_object($product)) {
+		echo '<td class="eilat_order_item_checkbox"><input type="checkbox" name="eilat_order_item_checkbox[' . esc_attr($item_id) . ']" ' . $checked . ' /></td>';
+	}
+}
+
+// Save the custom field value to the order items
+add_action('woocommerce_process_shop_order_meta', 'save_custom_order_meta', 10, 2);
+add_action('woocommerce_saved_order_items', 'save_custom_order_meta', 10, 2);
+function save_custom_order_meta($post_id, $post)
+{
+	$order = wc_get_order($post_id);
+	if ($order->get_status() !== 'eilat-pickup') {
+		return;
+	}
+	if (isset($_POST['eilat_order_item_checkbox'])) {
+		foreach ($_POST['eilat_order_item_checkbox'] as $item_id => $value) {
+			// Check if checkbox is checked, consider using 'on' or true as checked values
+			$checked = !empty($value) ? 'yes' : 'no';
+			wc_update_order_item_meta($item_id, '_eilat_order_item_checkbox', $checked);
+		}
+	} else {
+		// Important to handle the case where no checkboxes are checked
+		$order = wc_get_order($post_id);
+		foreach ($order->get_items() as $item_id => $item) {
+			wc_update_order_item_meta($item_id, '_eilat_order_item_checkbox', 'no');
+		}
+	}
+}
+
+// Add custom order action
+add_filter('woocommerce_order_actions', 'add_custom_order_action');
+function add_custom_order_action($actions)
+{
+	global $theorder;
+	if (!$theorder) {
+		$theorder = wc_get_order(get_the_ID());
+	}
+	if ($theorder->get_status() === 'eilat-pickup') {
+		$actions['send_to_third_party'] = __('עדכון אספקה מאילת עם מלאי חלקי', 'textdomain'); // Change 'textdomain' to your theme's or plugin's text domain
+	}
+	return $actions;
+}
+
+function process_order_send_to_third_party($order)
+{
+	if (!is_a($order, 'WC_Order')) {
+		return;
+	}
+
+	// Process only if the order status is 'eilat-pickup'
+	if ($order->get_status() !== 'eilat-pickup') {
+		return;
+	}
+
+	$logger = wc_get_logger();
+	$context = ['source' => 'eilat'];
+	$order_data = ['order_id' => $order->get_id(), 'total' => $order->get_total(), 'items' => []];
+
+	// Iterate through each item in the order
+	foreach ($order->get_items() as $item_id => $item) {
+		if (!$item instanceof WC_Order_Item_Product) {
+			continue;
+		}
+
+		$product = $item->get_product();
+		$checkbox_state = isset($_POST['eilat_order_item_checkbox'][$item_id]) ? 'yes' : 'no';
+		wc_update_order_item_meta($item_id, '_eilat_order_item_checkbox', $checkbox_state);
+
+		$order_data['items'][] = [
+			'product_id'    => $item->get_product_id(),
+			'product_image' => get_the_post_thumbnail_url($item->get_product_id(), 'thumbnail'),
+			'product_name'  => $product ? $product->get_name() : '',
+			'quantity'      => $item->get_quantity(),
+			'checkbox_meta' => $checkbox_state,
+		];
+	}
+
+	// Filter unchecked items
+	$unchecked_items = array_filter($order_data['items'], function ($item) {
+		return $item['checkbox_meta'] === 'no';
+	});
+
+	// Prepare the API request payload
+	$api_payload = [
+		"message" => [
+			"template" => "t9qzd5ehw", // Replace with your actual template ID
+			"subject" => "הזמנה מספר {$order->get_order_number()} במלאי חלקי באילת",
+			"from" => [
+				"name" => "LEGO® Certified Store",
+				"email" => "info@certifiedstore.co.il",
+			],
+			"to" => [
+				"name" => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
+				"email" => $order->get_billing_email(),
+			],
+			"vars" => [
+				"order_id" => $order->get_order_number(),
+				"name" => $order->get_billing_first_name(),
+				"pickup_date" => $order->get_meta('order_delivery_date'),
+				"pickup_time" => $order->get_meta('order_delivery_time'),
+				"items" => $unchecked_items,
+			],
+		],
+	];
+
+	// Log the entire body being sent
+	$logger->info('API Request Payload:', ['payload' => json_encode($api_payload)]);
+
+	// Send data to the third-party service
+	$api_response = wp_remote_post('https://api.flashy.app/messages/email', [
+		'method'    => 'POST',
+		'headers'   => [
+			'Content-Type' => 'application/json',
+			'x-api-key'    => 'hbve08i5ykevufwdjxhpkuuy4k9onbxu', // Replace with your Flashy API key
+		],
+		'body'      => json_encode($api_payload),
+	]);
+
+	if (is_wp_error($api_response)) {
+		$logger->error('Error sending email via Flashy API: ' . $api_response->get_error_message(), $context);
+	} else {
+		$response_code = wp_remote_retrieve_response_code($api_response);
+		$response_body = wp_remote_retrieve_body($api_response);
+		$logger->info('Flashy API Response: ' . $response_code . ' - ' . $response_body, $context);
+	}
+
+	// Update the order status
+	$order->update_status('eilat-partial');
+	$order->save();
+}
+add_action('woocommerce_order_action_send_to_third_party', 'process_order_send_to_third_party');
+
+
+// add_action('woocommerce_init', 'custom_function_using_wc_get_order_statuses');
+
+
+function get_order_info_for_flashy($order)
+{
+	$orderObj = new WC_Order($order);
+	$order_id = $orderObj->get_order_number();
+	$pickup_date = $orderObj->get_meta('order_delivery_date');
+	$pickup_time = $orderObj->get_meta('order_delivery_time');
+	$first_name = $orderObj->get_billing_first_name();
+	$items = $orderObj->get_items();
+	$logger = wc_get_logger();
+	$context = ['source' => 'eilat'];
+	$items = array_map(function ($item) {
+		// Ensure $item is an instance of WC_Order_Item_Product
+		if (!$item instanceof WC_Order_Item_Product) {
+			return null;
+		}
+
+		$product = $item->get_product();
+		return [
+			'product_id' => $item->get_product_id(),
+			'product_image' => get_the_post_thumbnail_url($item->get_product_id(), 'thumbnail'),
+			'product_name' => $product ? $product->get_name() : '',
+			'quantity' => $item->get_quantity(),
+			'checkbox_meta' => wc_get_order_item_meta($item->get_id(), '_eilat_order_item_checkbox', true),
+		];
+	}, $items);
+
+	$logger->info('Items:', ['items' => $items]);
+
+	// Remove null values (non-product items) from the array
+	$items = array_filter($items);
+	$logger->info('Filtered Items:', ['items' => $items]);
+
+	$unchecked_items = array_filter($items, function ($item) {
+		return $item['checkbox_meta'] === 'no';
+	});
+	$logger->info('Unchecked Items:', ['items' => $unchecked_items]);
+
+	return [
+		"order_id" => $order_id,
+		"pickup_date" => $pickup_date,
+		"pickup_time" => $pickup_time,
+		"first_name" => $first_name,
+		"items" => $unchecked_items,
+	];
+}
+add_filter('flashy_get_order_context', 'get_order_info_for_flashy', 10, 1);
+
+
+
+//send email to admin when order is placed in eilat
+// add_action('woocommerce_order_status_eilat-pickup', 'send_eilat_order_email', 10, 1);
+
+//round coupon discount
+// function filter_woocommerce_coupon_get_discount_amount(
+// 	$discount,
+// 	$discounting_amount,
+// 	$cart_item,
+// 	$single,
+// 	$instance
+// ) {
+// 	// round up to nearest 1
+// 	$discount = round($discount);
+// 	return $discount;
+// }
+
+// add_filter(
+// 	'woocommerce_coupon_get_discount_amount',
+// 	'filter_woocommerce_coupon_get_discount_amount',
+// 	10,
+// 	5
+// );

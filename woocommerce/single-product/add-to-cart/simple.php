@@ -38,12 +38,14 @@ if ($product->is_in_stock()) :
                 <path d="m13 8c0 .55228-.4477 1-1 1s-1-.44772-1-1 .4477-1 1-1 1 .44772 1 1z"></path>
               </g>
             </svg>
-            <span class="eilat_tooltip_text">שריינו את המוצר לאיסוף מאילת ושלמו בסניף</span>
+            <span class="eilat_tooltip_text">
+            שריינו את המוצר לאיסוף מאילת ושלמו בסניף (ביג אילת)
+            </span>
           </div>
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" role="switch" id="toggleEilatMode" name="toggleEilatMode" aria-checked="<?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'true' : 'false'; ?>" <?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'checked' : ''; ?>>
-            <label class="form-check-label" for="toggleEilatMode" id="toggleEilatModeLabel">
-              הזמנה מאילת
+            <input class="form-check-input toggleEilatMode" type="checkbox" role="switch" id="toggleEilatMode" name="toggleEilatMode" aria-checked="<?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'true' : 'false'; ?>" <?php echo isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' ? 'checked' : ''; ?>>
+            <label class="form-check-label toggleEilatModeLabel" for="toggleEilatMode" id="toggleEilatModeLabel">
+              הזמנה באילת
             </label>
           </div>
         </div>
@@ -74,7 +76,7 @@ if ($product->is_in_stock()) :
   <?php do_action('woocommerce_after_add_to_cart_form'); ?>
 
 <?php else : ?>
-  <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' && $product->get_meta('eilat_stock') > 0) :
+  <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' && $product->get_meta('eilat_stock') > get_eilat_min_stock()) :
     do_action('eilat_add_to_cart_button');
   endif; ?>
 <?php endif; ?>
