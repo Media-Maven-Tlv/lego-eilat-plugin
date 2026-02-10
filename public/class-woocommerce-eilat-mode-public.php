@@ -136,4 +136,39 @@ class Woocommerce_Eilat_Mode_Public
 		$excluded_dates = get_option('excluded_dates');
 		wp_localize_script('woocommerce-eilat-mode-delivery', 'excluded_dates', $excluded_dates);
 	}
+
+	/**
+	 * Exclude scripts from Cloudflare Rocket Loader to prevent jQuery loading issues
+	 * 
+	 * @param string $tag The script tag
+	 * @param string $handle The script handle
+	 * @return string Modified script tag
+	 */
+	public function exclude_script_from_rocket_loader($tag, $handle)
+	{
+		// List of scripts to exclude from Rocket Loader
+		$excluded_scripts = array(
+			'jquery',
+			'jquery-core',
+			'jquery-migrate',
+			$this->plugin_name,
+			'woocommerce-eilat-mode-checkout',
+			'woocommerce-eilat-mode-delivery',
+			'woocommerce-eilat-mode-product',
+			'sweetalert2',
+			'flatpickr',
+			'flatpickr-i18n',
+			'select2',
+			'wc-checkout',
+			'woocommerce',
+			'wc-cart-fragments'
+		);
+
+		if (in_array($handle, $excluded_scripts)) {
+			// Add data-cfasync="false" to exclude from Rocket Loader
+			$tag = str_replace(' src', ' data-cfasync="false" src', $tag);
+		}
+
+		return $tag;
+	}
 }
