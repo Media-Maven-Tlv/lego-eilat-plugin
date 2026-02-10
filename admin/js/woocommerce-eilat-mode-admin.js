@@ -3,23 +3,68 @@
 
   $(document).ready(function () {
     var calendarEl = document.getElementById('calendar');
+    var loadingOverlay = $('#loading-overlay');
+
     var calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: 'dayGridMonth',
+      showNonCurrentDates: false,
 
       events: function (fetchInfo, successCallback, failureCallback) {
+        loadingOverlay.fadeIn();
+
         jQuery.ajax({
           url: calendarData.ajaxurl,
           type: 'POST',
           data: {
             action: 'load_eilat_orders',
+            start: fetchInfo.startStr,
+            end: fetchInfo.endStr,
           },
           success: function (response) {
             successCallback(response);
+            loadingOverlay.fadeOut();
           },
           error: function () {
             failureCallback();
+            loadingOverlay.fadeOut();
           },
         });
+      },
+      eventDidMount: function (info) {
+        var orderDetails = `
+            <strong>Order #${info.event.title.replace(
+              'Order #',
+              ''
+            )}</strong><br>
+            Customer: ${info.event.extendedProps.customerName}<br>
+            Total: ₪${info.event.extendedProps.total}<br>
+            Status: ${info.event.extendedProps.status}
+        `;
+
+        $(info.el).attr('title', orderDetails);
+
+        tippy(info.el, {
+          content: orderDetails,
+          allowHTML: true,
+          theme: 'light',
+          placement: 'top',
+        });
+      },
+      eventContent: function (info) {
+        var statusColor = info.event.backgroundColor || '#000000';
+        var label = $('<span class="event-status-label"></span>').css({
+          'background-color': statusColor,
+          width: '10px',
+          height: '10px',
+          'border-radius': '50%',
+          display: 'inline-block',
+          'margin-right': '5px',
+        });
+
+        var titleEl = $('<span></span>').text(info.event.title);
+        var containerEl = $('<div></div>').append(label).append(titleEl);
+
+        return { domNodes: [containerEl[0]] };
       },
     });
 
@@ -41,75 +86,13 @@
         theme: 'airbnb',
         disable: [
           function (date) {
-            // var formattedDate =
-            //   date.getDate().toString().padStart(2, '0') +
-            //   '/' +
-            //   (date.getMonth() + 1).toString().padStart(2, '0') +
-            //   '/' +
-            //   date.getFullYear().toString();
-
             return (
-              // excluded_dates.includes(formattedDate) || // Check if date is in excluded_dates
-              date.getDay() === 6 || // Disable Saturdays
-              date.getDay() === 5 // Disable Fridays
+              date.getDay() === 6 ||
+              date.getDay() === 5
             );
           },
         ],
-        // plugins: [new confirmDatePlugin({
-        //   confirmText: "אישור",
-        //   showAlways: false,
-        //   theme: "dark"
-        // })]
-        // onChange: function (selectedDates, dateStr, instance) {
-        //   console.log(dateStr);
-        // },
       });
-      // var timeSlots = [];
-      // for (var i = 0; i < 24; i++) {
-      //   var time = i + ':00 - ' + (i + 1) + ':00';
-      //   timeSlots.push({ id: time, text: time });
-      // }
-
-      // const selected_time_slots = document.getElementById(
-      //   'selected_time_slots'
-      // );
-      // const choices = new Choices(selected_time_slots, {
-      //   removeItemButton: true,
-      //   searchEnabled: true,
-      //   placeholder: true,
-      //   placeholderValue: 'Select time slots',
-      //   placeholder: true,
-      //   shouldSort: false,
-      //   choices: timeSlots,
-      //   //add time slots options to the select, each block 1 hour
-      // });
     }
-
-    // $(document).on('change', '#delivery_date', function () {
-    //   var dateSelected = $(this).val();
-    //   console.log(dateSelected);
-    //   $.ajax({
-    //     url: checkout_params.ajaxurl,
-    //     type: 'POST',
-    //     data: {
-    //       action: 'get_available_time_slots',
-    //       date: dateSelected,
-    //     },
-    //     success: function (result) {
-    //       // Assuming result is an array of time slots
-    //       var $timeSlotSelect = $('#delivery_time_slot');
-    //       $timeSlotSelect.empty().removeAttr('disabled');
-    //       $.each(result, function (index, timeSlot) {
-    //         $timeSlotSelect.append(
-    //           $('<option></option>')
-    //             .attr('value', timeSlot.value)
-    //             .text(timeSlot.text)
-    //         );
-    //       });
-    //     },
-    //   });
-    // });
   });
-
-  //append dates after input
 })(jQuery);

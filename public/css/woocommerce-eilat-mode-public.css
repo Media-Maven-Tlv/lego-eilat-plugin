@@ -11,7 +11,7 @@ p#coderockz_woo_delivery_pickup_date_datepicker_field label {
 }
 
 body.eilat-mode .xoo-wsc-header::after {
-  content: 'הנכם נמצאים בתהליך הזמנה מסניף אילת';
+  content: 'הנכם נמצאים בתהליך הזמנה בסניף ביג אילת';
   display: block;
   clear: both;
   width: 100%;
@@ -23,7 +23,9 @@ body.eilat-mode .xoo-wsc-header::after {
 body.eilat-mode span.xoo-wsc-footer-txt {
   display: none;
 }
-
+.woocommerce-NoticeGroup.woocommerce-NoticeGroup-updateOrderReview {
+  width: 100%;
+}
 .price_wrap {
   display: flex;
   align-items: center;
@@ -114,20 +116,20 @@ p.eilat_price {
   opacity: 0.5;
 }
 .eilat_toggle_wrapper .form-check-input.loading:after {
-    content: "" !important;
-    box-sizing: border-box;
-    position: absolute;
-    top: 0px !important;
-    left: unset!important;
-    right: 0px!important;
-    bottom: unset !important;
-    width: 15px;
-    height: 15px;
-    margin: 0 !important;
-    border-radius: 50%;
-    border: 2px solid #ccc;
-    border-top-color: #E12026;
-    animation: spinner 0.6s linear infinite;
+  content: '' !important;
+  box-sizing: border-box;
+  position: absolute;
+  top: 0px !important;
+  left: unset !important;
+  right: 0px !important;
+  bottom: unset !important;
+  width: 15px;
+  height: 15px;
+  margin: 0 !important;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  border-top-color: #e12026;
+  animation: spinner 0.6s linear infinite;
 }
 
 #loadingIndicator {
@@ -149,7 +151,7 @@ p.eilat_price {
   position: relative;
 }
 .eilat-button.loading:after {
-  content: "" !important;
+  content: '' !important;
   box-sizing: border-box;
   position: absolute;
   top: 35% !important;
@@ -180,4 +182,110 @@ p.eilat_price {
   align-items: center;
   justify-content: center;
   font-size: 50px;
+}
+
+.eilat-banner {
+  position: fixed;
+  z-index: 9;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background-color: green;
+}
+
+.includes_tax {
+  display: none;
+}
+
+body.eilat-mode .woocommerce-customer-details address,
+body.eilat-mode .woocommerce-customer-details h2.woocommerce-column__title,
+body.eilat-mode
+  table.woocommerce-table.woocommerce-table--custom-fields.shop_table.custom-fields,
+body.eilat-mode li.woocommerce-order-overview__payment-method.method,
+body.eilat-mode .shop_table.order_details > tfoot > tr:nth-child(3),
+body.eilat-mode ul.wc-item-meta,
+body.eilat-mode .woocommerce-thankyou-order-received {
+  display: none !important;
+}
+
+.select2-results__option[aria-disabled='true'] {
+  cursor: not-allowed;
+  background-color: lightgray !important;
+  opacity: 20%;
+  display: none;
+}
+.select2-results__option {
+  cursor: pointer;
+}
+.gwp-notice {
+  text-align: center;
+  font-size: 18px;
+  color: red !important;
+  font-weight: 600;
+}
+
+/* ── Pickup Notice (inline) ── */
+.lego-pickup-notice {
+  background: #fff8e1;
+  border: 2px solid #ffb300;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  direction: rtl;
+  text-align: right;
+  font-size: 14px;
+  line-height: 1.8;
+  display: none;
+}
+.lego-pickup-notice p { margin: 0; }
+.lego-pickup-notice__title { font-weight: 700; color: #e65100; margin-bottom: 4px !important; }
+
+/* ── Pickup Popup (full-screen overlay) ── */
+#lego-pickup-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 99999;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.lego-pickup-popup__content {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  direction: rtl;
+  text-align: center;
+  line-height: 1.8;
+  position: relative;
+}
+.lego-pickup-popup__content p {
+  margin: 0;
+  font-size: 16px;
+}
+.lego-pickup-popup__content p.lego-pickup-notice__title {
+  font-size: 20px;
+  margin-bottom: 10px !important;
+}
+.lego-pickup-popup__btn {
+  margin-top: 24px;
+  background: #e3000b;
+  color: #fff !important;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 48px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+.lego-pickup-popup__btn:hover {
+  background: #c00008;
 }

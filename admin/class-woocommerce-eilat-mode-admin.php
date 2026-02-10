@@ -62,20 +62,11 @@ class Woocommerce_Eilat_Mode_Admin
 	 */
 	public function enqueue_styles()
 	{
-
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in Woocommerce_Eilat_Mode_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The Woocommerce_Eilat_Mode_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
-
-		wp_enqueue_style($this->plugin_name, plugin_dir_url(__FILE__) . 'css/woocommerce-eilat-mode-admin.css', array(), $this->version, 'all');
+		// Only load CSS on eilat plugin pages
+		$current_page = isset($_GET['page']) ? $_GET['page'] : '';
+		if ($current_page === 'eilat-settings' || $current_page === 'eilat-delivery-calendar') {
+			wp_enqueue_style($this->plugin_name, plugin_dir_url(__FILE__) . 'css/woocommerce-eilat-mode-admin.css', array(), $this->version, 'all');
+		}
 	}
 
 	/**
@@ -97,20 +88,49 @@ class Woocommerce_Eilat_Mode_Admin
 		 * between the defined hooks and the functions defined in this
 		 * class.
 		 */
-		wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
-		wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
-		wp_enqueue_script('flatpickr-i18n', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/he.js', array(), '4.6.6', false);
-		wp_enqueue_style('flatpickr-airbnb', '//cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css', array(), '4.6.6');
-		wp_enqueue_script('choices', '//cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/scripts/choices.min.js', array('jquery'), '4.0.13', false);
-		wp_enqueue_style('choices', '//cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css', array(), '4.0.13');
-
-		wp_enqueue_script('fullcalendar', '//cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.js', array('jquery'), '5.10.0', false);
-		wp_enqueue_style('fullcalendar', '//cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.css', array(), '5.10.0');
-
-		wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-admin.js', array('jquery', 'flatpickr', 'choices', 'fullcalendar'), $this->version, false);
-		wp_localize_script($this->plugin_name, 'calendarData', array(
-			'ajaxurl' => admin_url('admin-ajax.php')
-		));
+		
+		// Get current admin page
+		$current_page = isset($_GET['page']) ? $_GET['page'] : '';
+		
+		// Only load scripts on eilat settings and delivery calendar pages
+		if ($current_page === 'eilat-settings' || $current_page === 'eilat-delivery-calendar') {
+			
+			// Scripts needed for both pages
+			wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
+			wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
+			wp_enqueue_script('flatpickr-i18n', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/he.js', array(), '4.6.6', false);
+			wp_enqueue_style('flatpickr-airbnb', '//cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css', array(), '4.6.6');
+			
+			// Scripts only needed for delivery calendar page
+			if ($current_page === 'eilat-delivery-calendar') {
+				wp_enqueue_script('fullcalendar', '//cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.js', array('jquery'), '5.10.0', false);
+				wp_enqueue_style('fullcalendar', '//cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.css', array(), '5.10.0');
+				wp_enqueue_script('popper-js', 'https://unpkg.com/@popperjs/core@2', array(), null, false);
+				wp_enqueue_script('tippy-js', 'https://unpkg.com/tippy.js@6', array('popper-js'), null, false);
+				wp_enqueue_style('tippy-js-css', 'https://unpkg.com/tippy.js@6/animations/scale.css', array(), null);
+			}
+			
+			// Scripts only needed for settings page
+			if ($current_page === 'eilat-settings') {
+				wp_enqueue_script('choices', '//cdn.jsdelivr.net/npm/choices.js@9.0.1/public/assets/scripts/choices.min.js', array('jquery'), '4.0.13', false);
+				wp_enqueue_style('choices', '//cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css', array(), '4.0.13');
+			}
+			
+			// Main plugin script with appropriate dependencies for each page
+			$script_deps = array('jquery', 'flatpickr');
+			if ($current_page === 'eilat-delivery-calendar') {
+				$script_deps[] = 'fullcalendar';
+				$script_deps[] = 'tippy-js';
+			}
+			if ($current_page === 'eilat-settings') {
+				$script_deps[] = 'choices';
+			}
+			
+			wp_enqueue_script($this->plugin_name, plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-admin.js', $script_deps, $this->version, false);
+			wp_localize_script($this->plugin_name, 'calendarData', array(
+				'ajaxurl' => admin_url('admin-ajax.php')
+			));
+		}
 	}
 }
 
@@ -168,6 +188,7 @@ function my_eilat_settings_init()
 	register_setting('eilat-settings', 'selected_time_slots');
 	register_setting('eilat-settings', 'email_to');
 	register_setting('eilat-settings', 'eilat_pickup_method');
+	register_setting('eilat-settings', 'eilat_min_stock');
 	register_setting('eilat-settings', 'delivery_date_status');
 
 	// Register a new section in the "custom-settings" page.
@@ -204,6 +225,13 @@ function my_eilat_settings_init()
 		'eilat_settings_eilat_pickup_method', // As ID
 		'Eilat Pickup Method', // Title
 		'my_eilat_settings_eilat_pickup_method_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
+	);
+	add_settings_field(
+		'eilat_settings_eilat_min_stock', // As ID
+		'Eilat Min Stock', // Title
+		'my_eilat_settings_eilat_min_stock_callback', // Callback
 		'eilat-settings', // Page
 		'eilat_settings_section' // Section
 	);
@@ -274,6 +302,16 @@ function my_eilat_settings_delivery_date_status_callback()
 
 }
 
+function my_eilat_settings_eilat_min_stock_callback()
+{
+	// HTML input for the 'eilat_min_stock' setting
+	$value = get_option('eilat_min_stock');
+	echo '<input type="number" id="eilat_min_stock" name="eilat_min_stock" value="' . $value . '">';
+
+	// Add more input fields as needed
+
+}
+
 
 function eilat_delivery_calendar_page_html()
 {
@@ -332,41 +370,73 @@ function my_eilat_delivery_calendar_section_callback()
 function my_eilat_delivery_calendar_callback()
 {
 	// HTML input for the 'delivery_calendar' setting
-	echo '<div class="wrap">';
+	echo '<div class="wrap" style="position: relative;">';
+	echo '<div id="loading-overlay" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999;">';
+	echo '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">';
+	echo '<div class="spinner">Loading!</div> <!-- Add your spinner class or image here -->';
+	echo '</div>';
+	echo '</div>';
+
 	echo '<div id="calendar"></div>';  // Calendar container
 	echo '</div>';
 
 	// Add more input fields as needed
-
 }
 
 function load_eilat_orders_for_calendar()
 {
+	$start_date = isset($_POST['start']) ? sanitize_text_field($_POST['start']) : '';
+	$end_date = isset($_POST['end']) ? sanitize_text_field($_POST['end']) : '';
+
+	// Define colors for each status
+	$status_colors = array(
+		'eilat-pickup'    => '#1E90FF', // Blue
+		'eilat-partial'   => '#FFD700', // Yellow
+		'eilat-full'      => '#32CD32', // Green
+		'eilat-no-stock'  => '#FF4500', // Orange
+		'eilat-cancelled' => '#FF0000', // Red
+	);
 
 	$args = array(
-		'status'       => 'eilat-pickup',
+		'status'       => array('eilat-pickup', 'eilat-partial', 'eilat-full', 'eilat-no-stock', 'eilat-cancelled'),
 		'return'       => 'ids',
-		'meta_key'     => 'order_delivery_date', // Assuming this meta key is set correctly
+		'meta_key'     => 'order_delivery_date',
 		'orderby'      => 'meta_value',
 		'order'        => 'ASC',
+		'limit'        => -1,
 		'date_query'   => array(
 			array(
-				'year'  => current_time('Y'),
-				'month' => current_time('m'),
+				'after'     => $start_date,
+				'before'    => $end_date,
+				'inclusive' => true,
 			),
 		),
 	);
 	$orders = wc_get_orders($args);
 	$events = array();
 
+	// Prime meta cache for all orders at once for better performance
+	if (!empty($orders)) {
+		update_meta_cache('post', $orders);
+	}
+
 	foreach ($orders as $order_id) {
 		$order = wc_get_order($order_id);
+		if (!$order) continue;
+		
+		$order_number = $order->get_order_number();
 		$delivery_date = get_post_meta($order_id, 'order_delivery_date', true);
 		$delivery_time = get_post_meta($order_id, 'order_delivery_time', true);
+		
+		if (empty($delivery_date) || empty($delivery_time)) continue;
+		
 		$delivery_date = strtr($delivery_date, '/', '-');
 		$delivery_date = date('Y-m-d', strtotime($delivery_date));
 
-		list($start_time, $end_time) = explode(' - ', $delivery_time);
+		$time_parts = explode(' - ', $delivery_time);
+		if (count($time_parts) !== 2) continue;
+		
+		list($start_time, $end_time) = $time_parts;
 		$start_datetime = date('Y-m-d H:i:s', strtotime("$delivery_date $start_time"));
 		$end_datetime = date('Y-m-d H:i:s', strtotime("$delivery_date $end_time"));
 
@@ -374,21 +444,74 @@ function load_eilat_orders_for_calendar()
 		$total = $order->get_total();
 		$status = $order->get_status();
 
+		$color = isset($status_colors[$status]) ? $status_colors[$status] : '#000000';
+
 		$events[] = array(
-			'title' => sprintf('Order #%s', $order_id),
+			'title' => sprintf('Order #%s', $order_number),
 			'start' => $start_datetime,
 			'end'   => $end_datetime,
 			'url'   => admin_url('post.php?post=' . $order_id . '&action=edit'),
-			'allDay' => false, // This is important to show time in the calendar
+			'allDay' => false,
 			'extendedProps' => array(
 				'customerName' => $customer_name,
 				'total' => $total,
 				'status' => $status,
 				'email' => $order->get_billing_email(),
-			)
+			),
+			'color' => $color,
 		);
 	}
 
 	wp_send_json($events);
 }
+
 add_action('wp_ajax_load_eilat_orders', 'load_eilat_orders_for_calendar');
+
+
+// Add custom column to WooCommerce products screen
+add_filter('manage_edit-product_columns', 'add_eilat_stock_column');
+function add_eilat_stock_column($columns)
+{
+	$new_columns = array();
+
+	foreach ($columns as $key => $value) {
+		$new_columns[$key] = $value;
+		if ($key == 'is_in_stock') { // Insert after the stock column
+			$new_columns['eilat_stock'] = __('מלאי אילת', 'textdomain');
+		}
+	}
+
+	return $new_columns;
+}
+
+// Populate the custom column with meta data
+add_action('manage_product_posts_custom_column', 'show_eilat_stock_column', 10, 2);
+function show_eilat_stock_column($column, $post_id)
+{
+	if ($column == 'eilat_stock') {
+		$eilat_stock = get_post_meta($post_id, 'eilat_stock', true);
+		echo $eilat_stock ? esc_html($eilat_stock) : 'N/A';
+	}
+}
+
+// Make the custom column sortable
+add_filter('manage_edit-product_sortable_columns', 'make_eilat_stock_column_sortable');
+function make_eilat_stock_column_sortable($columns)
+{
+	$columns['eilat_stock'] = 'eilat_stock';
+	return $columns;
+}
+
+// Sort the products by custom column data
+add_action('pre_get_posts', 'sort_by_eilat_stock');
+function sort_by_eilat_stock($query)
+{
+	if (!is_admin() || !$query->is_main_query()) {
+		return;
+	}
+
+	if ('eilat_stock' === $query->get('orderby')) {
+		$query->set('meta_key', 'eilat_stock');
+		$query->set('orderby', 'meta_value_num');
+	}
+}

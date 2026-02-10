@@ -16,7 +16,7 @@
  * Plugin Name:       Woocommerce Eilat Mode
  * Plugin URI:        https://media-maven.co.il
  * Description:       Adds custom functionalities for handling Eilat mode, including a custom order status, product stock validation, checkout modifications, and applying zero tax in Eilat mode.
- * Version:           1.9.2
+ * Version:           2.2.89
  * Author:            Dor Meljon
  * Author URI:        https://media-maven.co.il/
  * License:           GPL-2.0+
@@ -35,7 +35,7 @@ if (!defined('WPINC')) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define('WOOCOMMERCE_EILAT_MODE_VERSION', '1.9.4');
+define('WOOCOMMERCE_EILAT_MODE_VERSION', '2.2.89');
 
 /**
  * The code that runs during plugin activation.
@@ -82,16 +82,3 @@ function run_woocommerce_eilat_mode()
 	$plugin->run();
 }
 run_woocommerce_eilat_mode();
-
-
-require 'plugin-update-checker/plugin-update-checker.php';
-
-use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
-
-$myUpdateChecker = PucFactory::buildUpdateChecker(
-	'https://github.com/Media-Maven-Tlv/lego-eilat-plugin',
-	__FILE__,
-	'woocommerce-eilat-mode'
-);
-
-$myUpdateChecker->setBranch('main');
