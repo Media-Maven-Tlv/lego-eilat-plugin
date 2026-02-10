@@ -83,6 +83,21 @@ class Woocommerce_Eilat_Mode_Public
 	 */
 	public function enqueue_scripts()
 	{
+
+		/**
+		 * This function is provided for demonstration purposes only.
+		 *
+		 * An instance of this class should be passed to the run() function
+		 * defined in Woocommerce_Eilat_Mode_Loader as all of the hooks are defined
+		 * in that particular class.
+		 *
+		 * The Woocommerce_Eilat_Mode_Loader will then create the relationship
+		 * between the defined hooks and the functions defined in this
+		 * class.
+		 */
+
+
+
 		if (is_checkout() && get_option('delivery_date_status')) {
 			wp_enqueue_script('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr', array(), '4.6.6', false);
 			wp_enqueue_style('flatpickr', '//cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.6');
@@ -103,11 +118,6 @@ class Woocommerce_Eilat_Mode_Public
 			wp_enqueue_script('woocommerce-eilat-mode-checkout', plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public-checkout.js', array(
 				'jquery'
 			), $this->version, false);
-
-			// Pass pickup method IDs to checkout JS for the pickup notice
-			wp_localize_script('woocommerce-eilat-mode-checkout', 'legoPickupNotice', array(
-				'pickupIds' => self::get_pickup_method_ids(),
-			));
 		}
 		if (is_product()) {
 			wp_enqueue_script('woocommerce-eilat-mode-product', plugin_dir_url(__FILE__) . 'js/woocommerce-eilat-mode-public-product.js', array(
@@ -125,81 +135,5 @@ class Woocommerce_Eilat_Mode_Public
 		
 		$excluded_dates = get_option('excluded_dates');
 		wp_localize_script('woocommerce-eilat-mode-delivery', 'excluded_dates', $excluded_dates);
-	}
-
-	/**
-	 * Exclude the checkout script from Cloudflare Rocket Loader.
-	 */
-	public function exclude_script_from_rocket_loader($tag, $handle)
-	{
-		if ('woocommerce-eilat-mode-checkout' === $handle) {
-			return str_replace('<script', '<script data-cfasync="false"', $tag);
-		}
-		return $tag;
-	}
-
-	/**
-	 * Get all shipping method IDs that are pickup methods.
-	 */
-	public static function get_pickup_method_ids()
-	{
-		$pickup_ids = array();
-		if (!class_exists('WC_Shipping_Zones')) {
-			return $pickup_ids;
-		}
-
-		foreach (\WC_Shipping_Zones::get_zones() as $zone) {
-			foreach ($zone['shipping_methods'] as $method) {
-				$id = $method->id . ':' . $method->instance_id;
-				// Include local_pickup type
-				if ($method->id === 'local_pickup') {
-					$pickup_ids[] = $id;
-					continue;
-				}
-				// Include methods whose title contains "איסוף עצמי" but not "משלוח"
-				$title = $method->title;
-				if (mb_strpos($title, 'איסוף עצמי') !== false && mb_strpos($title, 'משלוח') === false) {
-					$pickup_ids[] = $id;
-				}
-			}
-		}
-		return $pickup_ids;
-	}
-
-	/**
-	 * Output the pickup inline notice HTML (inside checkout form — may be replaced by fragments).
-	 */
-	public function pickup_notice_html()
-	{
-		?>
-		<!-- Pickup inline notice (hidden by default, toggled via JS) -->
-		<div id="lego-pickup-notice" class="lego-pickup-notice" style="display:none;">
-			<p class="lego-pickup-notice__title">⚠️ שימו לב</p>
-			<p>לקוחות יקרים, שימו לב - נבחרה האפשרות ל<span class="lego-pickup-method-name"></span>.
-			אנא המתינו למסרון המאשר כי ההזמנה מוכנה לאיסוף.</p>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Output the pickup popup HTML in wp_footer (outside checkout form so it
-	 * is NOT destroyed by WooCommerce fragment replacement).
-	 */
-	public function pickup_popup_html()
-	{
-		if (!is_checkout() && !is_cart()) {
-			return;
-		}
-		?>
-		<!-- Pickup full-screen popup (hidden by default, shown via JS) -->
-		<div id="lego-pickup-popup" class="lego-pickup-popup__backdrop" style="display:none;">
-			<div class="lego-pickup-popup__content">
-				<p class="lego-pickup-notice__title">⚠️ שימו לב</p>
-				<p>לקוחות יקרים, שימו לב - נבחרה האפשרות ל<span class="lego-pickup-method-name"></span>.
-				אנא המתינו למסרון המאשר כי ההזמנה מוכנה לאיסוף.</p>
-				<button type="button" class="lego-pickup-popup__btn" id="lego-pickup-popup-close">הבנתי, תודה!</button>
-			</div>
-		</div>
-		<?php
 	}
 }
