@@ -289,3 +289,40 @@ body.eilat-mode .woocommerce-thankyou-order-received {
 .lego-pickup-popup__btn:hover {
   background: #c00008;
 }
+
+/* ── Branch Stock Check Swal ── */
+.lego-swal-popup {
+  border-radius: 12px !important;
+  direction: rtl;
+  text-align: center;
+  padding: 30px !important;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3) !important;
+}
+.lego-swal-title {
+  font-size: 1.3em !important;
+  font-weight: 700 !important;
+  color: #000 !important;
+}
+.lego-swal-html {
+  color: #333 !important;
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+}
+.lego-swal-confirm {
+  color: #fff !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 14px 48px !important;
+  font-size: 18px !important;
+  border: none !important;
+}
+.lego-swal-cancel {
+  border-radius: 8px !important;
+  padding: 14px 48px !important;
+  font-size: 18px !important;
+  color: #000 !important;
+  border: none !important;
+}
+.lego-swal-popup .swal2-icon {
+  margin: 0 auto 10px !important;
+}
