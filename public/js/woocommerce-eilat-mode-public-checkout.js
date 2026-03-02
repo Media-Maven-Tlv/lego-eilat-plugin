@@ -10,7 +10,6 @@
   // Global variable to track the last shipping method
   let lastShippingMethod;
   let currentShippingMethod;
-  let isRefreshing = false;
 
   // ── Branch stock check config (injected by theme via wp_localize_script) ──
   const branchStockConfig = (typeof legoBranchStock !== 'undefined') ? legoBranchStock : null;
@@ -89,8 +88,6 @@
   }
 
   function updateCheckout() {
-    isRefreshing = false;
-
     const placeOrderText =
       getCookie(eilatModeCookieName) === 'true' ? 'הזמנה באילת' : 'המשך לתשלום';
     $('button#place_order').text(placeOrderText);
@@ -218,7 +215,6 @@
     if (typeof wc_checkout_params === 'undefined') return;
     var $form = $('form.checkout');
     if (!$form.length) return;
-    isRefreshing = true;
 
     var shipping = {};
     $('select.shipping_method, input[name^="shipping_method"][type="radio"]:checked, input[name^="shipping_method"][type="hidden"]').each(function () {
@@ -491,9 +487,9 @@
           icon: 'error',
           title: 'שגיאת תקשורת',
           confirmButtonText: 'מעבר לעגלה',
-        }).then(function () {
+        })).then(function () {
           window.location.href = '/cart';
-        }));
+        });
       },
     });
   }
