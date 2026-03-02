@@ -1,5 +1,6 @@
 (function ($) {
   'use strict';
+  window.__EILAT_CHECKOUT_VERSION = '2.2.99';
 
   // Constants for easier modification and clearer references
   const eilatModeCookieName = 'eilatMode';
@@ -8,13 +9,34 @@
 
   // Global variable to track the last shipping method
   let lastShippingMethod;
+  let currentShippingMethod;
+  let isRefreshing = false;
 
-  // Initialize once the document is ready
-  // FIX: Cloudflare Rocket Loader breaks jQuery's .ready() — the internal
-  // readyList deferred is never resolved because Rocket Loader interferes with
-  // jQuery's DOMContentLoaded/readyState initialization. Use a Rocket Loader-safe
-  // approach: if the document is already complete, call directly via setTimeout;
-  // otherwise fall back to the DOMContentLoaded event.
+  // ── Branch stock check config (injected by theme via wp_localize_script) ──
+  const branchStockConfig = (typeof legoBranchStock !== 'undefined') ? legoBranchStock : null;
+
+  function isBranchStockCheckMethod(val) {
+    return branchStockConfig && branchStockConfig.stockCheckMethods.hasOwnProperty(val);
+  }
+
+  function getBranchStoreName(val) {
+    return (branchStockConfig && branchStockConfig.stockCheckMethods[val]) || '';
+  }
+
+  var legoSwalBase = {
+    background: '#fff',
+    color: '#000',
+    confirmButtonColor: '#e3000b',
+    cancelButtonColor: '#FFD700',
+    customClass: {
+      popup: 'lego-swal-popup',
+      title: 'lego-swal-title',
+      htmlContainer: 'lego-swal-html',
+      confirmButton: 'lego-swal-confirm',
+      cancelButton: 'lego-swal-cancel',
+    },
+  };
+
   function onDomReady(fn) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', fn);
@@ -25,6 +47,7 @@
 
   onDomReady(function () {
     lastShippingMethod = $('select#shipping_method_0').val();
+    currentShippingMethod = lastShippingMethod;
     initializeCheckout();
   });
 
@@ -59,8 +82,6 @@
     const isEilatMode = getCookie(eilatModeCookieName) === 'true';
     toggleEilatMode(isEilatMode);
 
-    // Show inline pickup notice if a pickup method is already selected on load
-    // (popup only shows on active user change, not on page load)
     var currentVal = $('select#shipping_method_0').val() || '';
     if (isPickupMethod(currentVal)) {
       togglePickupNotice();
@@ -68,26 +89,26 @@
   }
 
   function updateCheckout() {
+    isRefreshing = false;
+
     const placeOrderText =
       getCookie(eilatModeCookieName) === 'true' ? 'הזמנה באילת' : 'המשך לתשלום';
     $('button#place_order').text(placeOrderText);
 
-    // Ensure we have a fallback for lastShippingMethod
     const fallbackShippingMethod = lastShippingMethod || regularShippingMethod;
 
-    $('#shipping_method_0').val(
-      getCookie(eilatModeCookieName) === 'true'
+    var newVal = getCookie(eilatModeCookieName) === 'true'
         ? local_pickup
-        : fallbackShippingMethod
-    );
+        : fallbackShippingMethod;
+    $('#shipping_method_0').val(newVal);
+    currentShippingMethod = newVal;
 
-    // Re-check pickup notice after checkout fragments refresh
     setTimeout(togglePickupNotice, 200);
   }
 
   function toggleEilatMode(enable) {
     if (enable) {
-      lastShippingMethod = $('select#shipping_method_0').val(); // Save the current method before changing
+      lastShippingMethod = $('select#shipping_method_0').val();
       toggleCoupon(true);
       $('#payment_method_cod').prop('checked', true).trigger('change');
       $('#billing_city').val('אילת');
@@ -158,7 +179,6 @@
   const pickupIds = (typeof legoPickupNotice !== 'undefined') ? legoPickupNotice.pickupIds : [];
 
   function isPickupMethod(val) {
-    // Exclude Eilat pickup — it has its own dedicated flow
     if (val === eilatShippingMethod) return false;
     return pickupIds.indexOf(val) !== -1 || (val && val.indexOf('local_pickup') === 0);
   }
@@ -187,7 +207,6 @@
     $('#lego-pickup-popup').fadeOut(200);
   }
 
-  // Close popup — close on button click or backdrop click (but not content area)
   $(document).on('click', '#lego-pickup-popup', function (e) {
     if ($(e.target).is('#lego-pickup-popup') || $(e.target).closest('#lego-pickup-popup-close').length) {
       hidePickupPopup();
@@ -199,6 +218,7 @@
     if (typeof wc_checkout_params === 'undefined') return;
     var $form = $('form.checkout');
     if (!$form.length) return;
+    isRefreshing = true;
 
     var shipping = {};
     $('select.shipping_method, input[name^="shipping_method"][type="radio"]:checked, input[name^="shipping_method"][type="hidden"]').each(function () {
@@ -226,11 +246,17 @@
     );
   }
 
-  function handleShippingMethodChange() {
-    const selectedShippingMethod = $(this).val();
+  function handleShippingMethodChange(e) {
+    var selectedShippingMethod = $(this).val();
+    var isUserAction = !!(e && e.originalEvent);
+
+    if (selectedShippingMethod === currentShippingMethod) {
+      return;
+    }
+    currentShippingMethod = selectedShippingMethod;
+
     const isEilatMode = selectedShippingMethod === local_pickup;
 
-    // Store the last non-eilat shipping method for restoration later
     if (!isEilatMode && selectedShippingMethod !== local_pickup) {
       lastShippingMethod = selectedShippingMethod;
     }
@@ -243,12 +269,14 @@
     toggleEilatBanner(isEilatMode);
     toggleCoupon(isEilatMode);
     
-    // Only check stock when switching TO Eilat mode (local pickup)
     if (isEilatMode) {
       checkStock(true);
     }
 
-    // Pickup notice popup + inline notice
+    if (!isEilatMode && isBranchStockCheckMethod(selectedShippingMethod)) {
+      checkBranchStock(selectedShippingMethod, getBranchStoreName(selectedShippingMethod));
+    }
+
     if (isPickupMethod(selectedShippingMethod)) {
       showPickupPopup();
     } else {
@@ -256,8 +284,9 @@
     }
     togglePickupNotice();
 
-    // Refresh order review (WooCommerce doesn't do it for <select> changes)
-    refreshOrderReview();
+    if (isUserAction) {
+      refreshOrderReview();
+    }
   }
 
   function checkStock(isEilat) {
@@ -341,5 +370,137 @@
         'https://lego.certifiedstore.co.il/eis-eilat/'
       );
     }
+  }
+
+  // ── Branch stock check (non-Eilat pickup methods) ──
+
+  function checkBranchStock(shippingMethod, storeName) {
+    Swal.fire(Object.assign({}, legoSwalBase, {
+      title: 'מוודאים שיש לנו הכל בסניף ' + escapeHtml(storeName),
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: function () { Swal.showLoading(); },
+    }));
+
+    $.ajax({
+      type: 'POST',
+      url: branchStockConfig.restUrl + 'branch-stock-check',
+      beforeSend: function (xhr) {
+        xhr.setRequestHeader('X-WP-Nonce', branchStockConfig.nonce);
+      },
+      data: { shipping_method: shippingMethod },
+      success: function (response) {
+        if (response.success) {
+          if (response.stock_check_active) {
+            Swal.fire(Object.assign({}, legoSwalBase, {
+              icon: 'success',
+              title: 'הכל במלאי!',
+              text: 'כל המוצרים זמינים בסניף ' + storeName,
+              timer: 2000,
+              showConfirmButton: false,
+            }));
+          } else {
+            Swal.close();
+          }
+          return;
+        }
+        handleBranchOutOfStock(response.out_of_stock || [], storeName);
+      },
+      error: function () {
+        Swal.fire(Object.assign({}, legoSwalBase, {
+          icon: 'error',
+          title: 'שגיאת תקשורת',
+          text: 'לא ניתן לבדוק את המלאי כרגע. נסו שוב מאוחר יותר.',
+          confirmButtonText: 'סגור',
+        }));
+      },
+    });
+  }
+
+  function handleBranchOutOfStock(items, storeName) {
+    if (!items.length) { Swal.close(); return; }
+
+    var listHtml = '<div style="text-align:center;direction:rtl;margin:0.5em 0;">';
+    listHtml += '<p style="color:#000;margin-bottom:0.8em;font-size:18px;">המוצרים הבאים לא זמינים בסניף ' + escapeHtml(storeName) + ':</p>';
+    items.forEach(function (item) {
+      listHtml += '<div style="padding:0.5em 0;border-bottom:1px solid #eee;color:#000;">' + escapeHtml(item.name) + '</div>';
+    });
+    listHtml += '</div>';
+
+    Swal.fire(Object.assign({}, legoSwalBase, {
+      icon: 'warning',
+      title: 'מוצרים חסרים במלאי הסניף',
+      html: listHtml,
+      confirmButtonText: 'הסר מוצרים חסרים',
+      cancelButtonText: 'מעבר לעגלה',
+      showCancelButton: true,
+      reverseButtons: true,
+    })).then(function (result) {
+      if (result.isConfirmed) {
+        removeBranchOutOfStockItems(items);
+      } else {
+        window.location.href = '/cart';
+      }
+    });
+  }
+
+  function removeBranchOutOfStockItems(items) {
+    var keys = items.map(function (item) { return item.cart_item_key; });
+
+    Swal.fire(Object.assign({}, legoSwalBase, {
+      title: 'מסיר מוצרים...',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: function () { Swal.showLoading(); },
+    }));
+
+    $.ajax({
+      type: 'POST',
+      url: branchStockConfig.restUrl + 'remove-cart-items',
+      beforeSend: function (xhr) {
+        xhr.setRequestHeader('X-WP-Nonce', branchStockConfig.nonce);
+      },
+      contentType: 'application/json',
+      data: JSON.stringify({ items: keys }),
+      success: function (response) {
+        if (response.success) {
+          currentShippingMethod = '';
+          refreshOrderReview();
+          $(document.body).trigger('wc_fragment_refresh');
+          Swal.fire(Object.assign({}, legoSwalBase, {
+            icon: 'success',
+            title: 'המוצרים הוסרו בהצלחה',
+            timer: 1500,
+            showConfirmButton: false,
+          }));
+        } else {
+          Swal.fire(Object.assign({}, legoSwalBase, {
+            icon: 'error',
+            title: 'שגיאה',
+            text: 'לא הצלחנו להסיר את המוצרים. נסו לעדכן את העגלה ידנית.',
+            confirmButtonText: 'מעבר לעגלה',
+          })).then(function () {
+            window.location.href = '/cart';
+          });
+        }
+      },
+      error: function () {
+        Swal.fire(Object.assign({}, legoSwalBase, {
+          icon: 'error',
+          title: 'שגיאת תקשורת',
+          confirmButtonText: 'מעבר לעגלה',
+        }).then(function () {
+          window.location.href = '/cart';
+        }));
+      },
+    });
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
   }
 })(jQuery);
