@@ -272,7 +272,7 @@
     if (!isEilatMode && isBranchStockCheckMethod(selectedShippingMethod)) {
       checkBranchStock(selectedShippingMethod, getBranchStoreName(selectedShippingMethod));
     } else if (isPickupMethod(selectedShippingMethod)) {
-      showPickupPopup();
+      showPickupOnlySwal(getSelectedMethodName());
     } else {
       hidePickupPopup();
     }
