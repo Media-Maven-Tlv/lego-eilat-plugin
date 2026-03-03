@@ -1,6 +1,6 @@
 (function ($) {
   'use strict';
-  window.__EILAT_CHECKOUT_VERSION = '2.3.2';
+  window.__EILAT_CHECKOUT_VERSION = '2.3.4';
 
   // Constants for easier modification and clearer references
   const eilatModeCookieName = 'eilatMode';
@@ -387,10 +387,10 @@
   // ── Branch stock check (non-Eilat pickup methods) ──
 
   function buildPickupNoticeHtml(storeName) {
-    var methodName = getSelectedMethodName() || storeName;
     return '<div style="text-align:center;direction:rtl;margin:0 0 0.5em;padding:0 0 0.8em;border-bottom:1px solid #eee;">'
-      + '<p style="color:#333;font-size:15px;line-height:1.7;margin:0;">נבחרה האפשרות ל' + escapeHtml(methodName)
-      + ' | עד 14 ימי עסקים. אנא המתינו למסרון המאשר כי ההזמנה מוכנה לאיסוף.</p>'
+      + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">ההזמנה תהיה מוכנה עד 14 ימי עסקים.</p>'
+      + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">אנא המתינו למסרון SMS המאשר כי הזמנתכם מוכנה.</p>'
+      + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">יש להציג מספר הזמנה ותעודה מזהה בעת האיסוף.</p>'
       + '</div>';
   }
 
@@ -432,7 +432,7 @@
     var html = buildPickupNoticeHtml(storeName);
     Swal.fire(Object.assign({}, legoSwalBase, {
       icon: 'warning',
-      title: 'איסוף עצמי ' + escapeHtml(storeName),
+      title: 'איסוף עצמי - ' + escapeHtml(storeName),
       html: html,
       confirmButtonText: 'הבנתי, תודה!',
       showCancelButton: false,
@@ -445,8 +445,7 @@
     var html = buildPickupNoticeHtml(storeName);
 
     html += '<div style="text-align:center;direction:rtl;margin:0.5em 0;">';
-    html += '<p style="color:#000;font-weight:700;font-size:18px;margin-bottom:0.5em;">מוצרים חסרים במלאי הסניף</p>';
-    html += '<p style="color:#000;margin-bottom:0.8em;font-size:16px;">המוצרים הבאים לא זמינים בסניף ' + escapeHtml(storeName) + ':</p>';
+    html += '<h2 class="lego-swal-title" style="font-size:1.3em;font-weight:700;color:#000;margin-bottom:0.5em;">נמצא כי המוצר/ים הבאים אינם זמינים:</h2>';
     items.forEach(function (item) {
       html += '<div style="padding:0.5em 0;border-bottom:1px solid #eee;color:#000;">' + escapeHtml(item.name) + '</div>';
     });
@@ -454,7 +453,7 @@
 
     Swal.fire(Object.assign({}, legoSwalBase, {
       icon: 'warning',
-      title: 'איסוף עצמי ' + escapeHtml(storeName),
+      title: 'איסוף עצמי - ' + escapeHtml(storeName),
       html: html,
       confirmButtonText: 'הסר מוצרים חסרים',
       cancelButtonText: 'בחרו שיטת משלוח אחרת',
