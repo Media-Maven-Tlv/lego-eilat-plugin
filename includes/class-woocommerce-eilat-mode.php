@@ -365,11 +365,25 @@ add_action('woocommerce_checkout_create_order', 'set_custom_order_status_based_o
 
 
 
+// Check if Eilat mode is globally enabled via admin settings (default: on)
+function is_eilat_globally_enabled()
+{
+	static $enabled = null;
+	if ($enabled === null) {
+		$enabled = get_option('eilat_mode_enabled', 'on') === 'on';
+	}
+	return $enabled;
+}
+
 // get cookie value with static caching for performance
 function get_cookie_eilat_mode()
 {
 	static $result = null;
 	if ($result === null) {
+		if (!is_eilat_globally_enabled()) {
+			$result = false;
+			return $result;
+		}
 		$result = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
 	}
 	return $result;
@@ -425,6 +439,11 @@ function eilat_ensure_wc_cart()
 // REST API: Add to cart
 function eilat_rest_add_to_cart($request)
 {
+	// Bail early if Eilat mode is globally disabled
+	if (!is_eilat_globally_enabled()) {
+		return new WP_REST_Response(array('success' => false, 'error' => 'Eilat mode is currently disabled'), 403);
+	}
+
 	// Start output buffering to catch any unwanted output from filters/actions
 	ob_start();
 	
@@ -1039,6 +1058,12 @@ function check_if_product_is_in_eilat_stock($product)
 // add product to eilat cart ajax function
 function add_product_to_eilat()
 {
+	// Bail early if Eilat mode is globally disabled
+	if (!is_eilat_globally_enabled()) {
+		wp_send_json(array('success' => false, 'error' => 'Eilat mode is currently disabled'));
+		wp_die();
+	}
+
 	$product_id = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
 	$quantity = isset($_POST['quantity']) ? absint($_POST['quantity']) : 1;
 	$override = isset($_POST['override']) ? filter_var($_POST['override'], FILTER_VALIDATE_BOOLEAN) : false;

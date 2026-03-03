@@ -123,6 +123,11 @@ class Woocommerce_Eilat_Mode_Public
 			'nonce' => wp_create_nonce('wp_rest')
 		));
 		
+		// Eilat config for JS - globally enabled check
+		wp_localize_script($this->plugin_name, 'eilat_config', array(
+			'globally_enabled' => is_eilat_globally_enabled() ? '1' : '0',
+		));
+		
 		$excluded_dates = get_option('excluded_dates');
 		wp_localize_script('woocommerce-eilat-mode-delivery', 'excluded_dates', $excluded_dates);
 	}

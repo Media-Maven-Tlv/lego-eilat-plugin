@@ -6,7 +6,7 @@ global $product;
 ?>
 <div class="price_wrap">
   <p class="<?php echo esc_attr(apply_filters('woocommerce_product_price_class', 'price')); ?> align-items-center d-flex fs-6 gap-3 mb-0"><?php if ($product->is_on_sale()) : ?><span class="opacity-50 text-decoration-line-through text-muted"><?php echo PG_WC_Helper::getPrice($product, 'regular'); ?></span><?php endif; ?><?php if ($product->is_on_sale()) : ?><span class="fs-3 fw-bold text-danger"><?php echo PG_WC_Helper::getPrice($product, 'sale'); ?></span><?php endif; ?><?php if (!$product->is_on_sale()) : ?><span class="fs-3 fw-bold text-dark"><?php echo PG_WC_Helper::getPrice($product, 'regular'); ?></span><?php endif; ?></p>
-  <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'false') : ?>
+  <?php if (is_eilat_globally_enabled() && isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'false') : ?>
     <p class="eilat_price">
       <span class="">מחיר אילת:</span>
       <span>
