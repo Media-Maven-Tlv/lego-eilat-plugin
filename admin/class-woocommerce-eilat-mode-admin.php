@@ -184,6 +184,7 @@ function eilat_settings_page_html()
 function my_eilat_settings_init()
 {
 	// Register a new setting for "custom-settings" page.
+	register_setting('eilat-settings', 'eilat_mode_enabled');
 	register_setting('eilat-settings', 'excluded_dates');
 	register_setting('eilat-settings', 'selected_time_slots');
 	register_setting('eilat-settings', 'email_to');
@@ -197,6 +198,15 @@ function my_eilat_settings_init()
 		'Eilat Settings',
 		'my_eilat_settings_section_callback',
 		'eilat-settings'
+	);
+
+	// Eilat Mode Enabled toggle - first field
+	add_settings_field(
+		'eilat_settings_eilat_mode_enabled', // As ID
+		'Eilat Mode Enabled', // Title
+		'my_eilat_settings_eilat_mode_enabled_callback', // Callback
+		'eilat-settings', // Page
+		'eilat_settings_section' // Section
 	);
 
 	// Register a new field in the "custom_settings_section" section, inside the "custom-settings" page.
@@ -250,6 +260,13 @@ add_action('admin_init', 'my_eilat_settings_init');
 function my_eilat_settings_section_callback()
 {
 	echo '<p>Eilat settings for your plugin.</p>';
+}
+
+function my_eilat_settings_eilat_mode_enabled_callback()
+{
+	$value = get_option('eilat_mode_enabled', 'on');
+	echo '<input type="checkbox" id="eilat_mode_enabled" name="eilat_mode_enabled" ' . checked($value, 'on', false) . '>';
+	echo '<p class="description">When unchecked, Eilat mode is completely disabled site-wide (no Eilat toggle, no Eilat add-to-cart, no Eilat pricing).</p>';
 }
 
 function my_eilat_settings_excluded_dates_callback()

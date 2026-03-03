@@ -30,8 +30,18 @@
     checkStock(true);
   };
 
+  // Check if Eilat mode is globally enabled
+  function isEilatGloballyEnabled() {
+    return typeof eilat_config !== 'undefined' && eilat_config.globally_enabled === '1';
+  }
+
   // Add to cart with optional override
   window.addProductToEilat = function (button, override = false) {
+    // Bail early if Eilat mode is globally disabled
+    if (!isEilatGloballyEnabled()) {
+      return false;
+    }
+
     // Prevent double calls - check if already processing
     if (button.hasClass('processing') || button.prop('disabled')) {
       return false;
@@ -110,6 +120,12 @@
 
   // Initialize page-specific functionalities
   $(document).ready(function () {
+    // Bail early if Eilat mode is globally disabled
+    if (!isEilatGloballyEnabled()) {
+      $('body').removeClass('eilat-mode');
+      return;
+    }
+
     if (getCookie('eilatMode') === 'true') {
       $('body').addClass('eilat-mode');
 

@@ -29,6 +29,7 @@ if ($product->is_in_stock()) :
 
         do_action('woocommerce_after_add_to_cart_quantity'); ?>
 
+        <?php if (is_eilat_globally_enabled()) : ?>
         <div class="eilat_toggle_wrapper me-4">
           <div class="eilat_tooltip">
             <svg fill="none" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg" id="fi_9446643">
@@ -49,11 +50,12 @@ if ($product->is_in_stock()) :
             </label>
           </div>
         </div>
+        <?php endif; ?>
 
       </div>
       <div class=" align-items-center cart_button_single_prod col-md-12 mt-2 pt-md-2">
 
-        <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') :
+        <?php if (is_eilat_globally_enabled() && isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') :
           do_action('eilat_add_to_cart_button');
         ?>
 
@@ -76,7 +78,7 @@ if ($product->is_in_stock()) :
   <?php do_action('woocommerce_after_add_to_cart_form'); ?>
 
 <?php else : ?>
-  <?php if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' && $product->get_meta('eilat_stock') > get_eilat_min_stock()) :
+  <?php if (is_eilat_globally_enabled() && isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true' && $product->get_meta('eilat_stock') > get_eilat_min_stock()) :
     do_action('eilat_add_to_cart_button');
   endif; ?>
 <?php endif; ?>
