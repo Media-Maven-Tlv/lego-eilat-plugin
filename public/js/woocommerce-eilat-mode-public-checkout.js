@@ -1,11 +1,14 @@
 (function ($) {
   'use strict';
-  window.__EILAT_CHECKOUT_VERSION = '2.2.99';
+  window.__EILAT_CHECKOUT_VERSION = '2.3.2';
 
   // Constants for easier modification and clearer references
   const eilatModeCookieName = 'eilatMode';
   const eilatShippingMethod = local_pickup;
   const regularShippingMethod = 'free_shipping:4';
+
+  // Whether the Eilat mode feature is globally enabled in admin
+  const eilatGloballyEnabled = (typeof eilat_config !== 'undefined' && eilat_config.globally_enabled === '1');
 
   // Global variable to track the last shipping method
   let lastShippingMethod;
@@ -62,48 +65,59 @@
       'select#shipping_method_0',
       handleShippingMethodChange
     );
-    $(document.body).on(
-      'click',
-      'a.woocommerce-terms-and-conditions-link',
-      function (e) {
-        if (getCookie(eilatModeCookieName) === 'true') {
-          e.preventDefault();
-          $('a.woocommerce-terms-and-conditions-link').attr(
-            'href',
-            'https://lego.certifiedstore.co.il/eis-eilat/'
-          );
+    if (eilatGloballyEnabled) {
+      $(document.body).on(
+        'click',
+        'a.woocommerce-terms-and-conditions-link',
+        function (e) {
+          if (getCookie(eilatModeCookieName) === 'true') {
+            e.preventDefault();
+            $('a.woocommerce-terms-and-conditions-link').attr(
+              'href',
+              'https://lego.certifiedstore.co.il/eis-eilat/'
+            );
+          }
         }
-      }
-    );
-  }
-
-  function applyInitialSettings() {
-    const isEilatMode = getCookie(eilatModeCookieName) === 'true';
-    toggleEilatMode(isEilatMode);
-
-    var currentVal = $('select#shipping_method_0').val() || '';
-    if (isPickupMethod(currentVal)) {
-      togglePickupNotice();
+      );
     }
   }
 
+  function applyInitialSettings() {
+    if (eilatGloballyEnabled) {
+      const isEilatMode = getCookie(eilatModeCookieName) === 'true';
+      toggleEilatMode(isEilatMode);
+    }
+
+    var currentVal = $('select#shipping_method_0').val() || '';
+    if (isBranchStockCheckMethod(currentVal)) {
+      checkBranchStock(currentVal, getBranchStoreName(currentVal));
+    } else if (isPickupMethod(currentVal)) {
+      showPickupOnlySwal(getSelectedMethodName());
+    }
+    togglePickupNotice();
+  }
+
   function updateCheckout() {
-    const placeOrderText =
-      getCookie(eilatModeCookieName) === 'true' ? 'הזמנה באילת' : 'המשך לתשלום';
-    $('button#place_order').text(placeOrderText);
+    if (eilatGloballyEnabled) {
+      const placeOrderText =
+        getCookie(eilatModeCookieName) === 'true' ? 'הזמנה באילת' : 'המשך לתשלום';
+      $('button#place_order').text(placeOrderText);
 
-    const fallbackShippingMethod = lastShippingMethod || regularShippingMethod;
+      const fallbackShippingMethod = lastShippingMethod || regularShippingMethod;
 
-    var newVal = getCookie(eilatModeCookieName) === 'true'
-        ? local_pickup
-        : fallbackShippingMethod;
-    $('#shipping_method_0').val(newVal);
-    currentShippingMethod = newVal;
+      var newVal = getCookie(eilatModeCookieName) === 'true'
+          ? local_pickup
+          : fallbackShippingMethod;
+      $('#shipping_method_0').val(newVal);
+      currentShippingMethod = newVal;
+    }
 
     setTimeout(togglePickupNotice, 200);
   }
 
   function toggleEilatMode(enable) {
+    if (!eilatGloballyEnabled) return;
+
     if (enable) {
       lastShippingMethod = $('select#shipping_method_0').val();
       toggleCoupon(true);
@@ -176,7 +190,7 @@
   const pickupIds = (typeof legoPickupNotice !== 'undefined') ? legoPickupNotice.pickupIds : [];
 
   function isPickupMethod(val) {
-    if (val === eilatShippingMethod) return false;
+    if (eilatGloballyEnabled && val === eilatShippingMethod) return false;
     return pickupIds.indexOf(val) !== -1 || (val && val.indexOf('local_pickup') === 0);
   }
 
@@ -251,30 +265,32 @@
     }
     currentShippingMethod = selectedShippingMethod;
 
-    const isEilatMode = selectedShippingMethod === local_pickup;
+    const isEilatMode = eilatGloballyEnabled && selectedShippingMethod === local_pickup;
 
     if (!isEilatMode && selectedShippingMethod !== local_pickup) {
       lastShippingMethod = selectedShippingMethod;
     }
 
-    setCookie(eilatModeCookieName, isEilatMode ? 'true' : 'false', 1);
-    toggleBillingFields(!isEilatMode);
-    toggleExtraFields(!isEilatMode);
-    toggleBillingTitle(!isEilatMode);
-    termsLink(isEilatMode);
-    toggleEilatBanner(isEilatMode);
-    toggleCoupon(isEilatMode);
-    
-    if (isEilatMode) {
-      checkStock(true);
+    // Eilat-specific checkout modifications
+    if (eilatGloballyEnabled) {
+      setCookie(eilatModeCookieName, isEilatMode ? 'true' : 'false', 1);
+      toggleBillingFields(!isEilatMode);
+      toggleExtraFields(!isEilatMode);
+      toggleBillingTitle(!isEilatMode);
+      termsLink(isEilatMode);
+      toggleEilatBanner(isEilatMode);
+      toggleCoupon(isEilatMode);
+
+      if (isEilatMode) {
+        checkStock(true);
+      }
     }
 
-    if (!isEilatMode && isBranchStockCheckMethod(selectedShippingMethod)) {
+    // Pickup notice + branch stock check (always active, not Eilat-specific)
+    if (isBranchStockCheckMethod(selectedShippingMethod)) {
       checkBranchStock(selectedShippingMethod, getBranchStoreName(selectedShippingMethod));
-    }
-
-    if (isPickupMethod(selectedShippingMethod)) {
-      showPickupPopup();
+    } else if (isPickupMethod(selectedShippingMethod)) {
+      showPickupOnlySwal(getSelectedMethodName());
     } else {
       hidePickupPopup();
     }
@@ -370,6 +386,14 @@
 
   // ── Branch stock check (non-Eilat pickup methods) ──
 
+  function buildPickupNoticeHtml(storeName) {
+    var methodName = getSelectedMethodName() || storeName;
+    return '<div style="text-align:center;direction:rtl;margin:0 0 0.5em;padding:0 0 0.8em;border-bottom:1px solid #eee;">'
+      + '<p style="color:#333;font-size:15px;line-height:1.7;margin:0;">נבחרה האפשרות ל' + escapeHtml(methodName)
+      + ' | עד 14 ימי עסקים. אנא המתינו למסרון המאשר כי ההזמנה מוכנה לאיסוף.</p>'
+      + '</div>';
+  }
+
   function checkBranchStock(shippingMethod, storeName) {
     Swal.fire(Object.assign({}, legoSwalBase, {
       title: 'מוודאים שיש לנו הכל בסניף ' + escapeHtml(storeName),
@@ -388,17 +412,7 @@
       data: { shipping_method: shippingMethod },
       success: function (response) {
         if (response.success) {
-          if (response.stock_check_active) {
-            Swal.fire(Object.assign({}, legoSwalBase, {
-              icon: 'success',
-              title: 'הכל במלאי!',
-              text: 'כל המוצרים זמינים בסניף ' + storeName,
-              timer: 2000,
-              showConfirmButton: false,
-            }));
-          } else {
-            Swal.close();
-          }
+          showPickupOnlySwal(storeName);
           return;
         }
         handleBranchOutOfStock(response.out_of_stock || [], storeName);
@@ -414,29 +428,41 @@
     });
   }
 
-  function handleBranchOutOfStock(items, storeName) {
-    if (!items.length) { Swal.close(); return; }
+  function showPickupOnlySwal(storeName) {
+    var html = buildPickupNoticeHtml(storeName);
+    Swal.fire(Object.assign({}, legoSwalBase, {
+      icon: 'warning',
+      title: 'איסוף עצמי ' + escapeHtml(storeName),
+      html: html,
+      confirmButtonText: 'הבנתי, תודה!',
+      showCancelButton: false,
+    }));
+  }
 
-    var listHtml = '<div style="text-align:center;direction:rtl;margin:0.5em 0;">';
-    listHtml += '<p style="color:#000;margin-bottom:0.8em;font-size:18px;">המוצרים הבאים לא זמינים בסניף ' + escapeHtml(storeName) + ':</p>';
+  function handleBranchOutOfStock(items, storeName) {
+    if (!items.length) { showPickupOnlySwal(storeName); return; }
+
+    var html = buildPickupNoticeHtml(storeName);
+
+    html += '<div style="text-align:center;direction:rtl;margin:0.5em 0;">';
+    html += '<p style="color:#000;font-weight:700;font-size:18px;margin-bottom:0.5em;">מוצרים חסרים במלאי הסניף</p>';
+    html += '<p style="color:#000;margin-bottom:0.8em;font-size:16px;">המוצרים הבאים לא זמינים בסניף ' + escapeHtml(storeName) + ':</p>';
     items.forEach(function (item) {
-      listHtml += '<div style="padding:0.5em 0;border-bottom:1px solid #eee;color:#000;">' + escapeHtml(item.name) + '</div>';
+      html += '<div style="padding:0.5em 0;border-bottom:1px solid #eee;color:#000;">' + escapeHtml(item.name) + '</div>';
     });
-    listHtml += '</div>';
+    html += '</div>';
 
     Swal.fire(Object.assign({}, legoSwalBase, {
       icon: 'warning',
-      title: 'מוצרים חסרים במלאי הסניף',
-      html: listHtml,
+      title: 'איסוף עצמי ' + escapeHtml(storeName),
+      html: html,
       confirmButtonText: 'הסר מוצרים חסרים',
-      cancelButtonText: 'מעבר לעגלה',
+      cancelButtonText: 'בחרו שיטת משלוח אחרת',
       showCancelButton: true,
       reverseButtons: true,
     })).then(function (result) {
       if (result.isConfirmed) {
         removeBranchOutOfStockItems(items);
-      } else {
-        window.location.href = '/cart';
       }
     });
   }
