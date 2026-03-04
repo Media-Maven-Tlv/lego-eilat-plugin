@@ -1,6 +1,6 @@
 (function ($) {
   'use strict';
-  window.__EILAT_CHECKOUT_VERSION = '2.3.4';
+  window.__EILAT_CHECKOUT_VERSION = '2.3.5';
 
   // Constants for easier modification and clearer references
   const eilatModeCookieName = 'eilatMode';
@@ -458,7 +458,7 @@
       confirmButtonText: 'הסר מוצרים חסרים',
       cancelButtonText: 'בחרו שיטת משלוח אחרת',
       showCancelButton: true,
-      reverseButtons: true,
+      reverseButtons: false,
     })).then(function (result) {
       if (result.isConfirmed) {
         removeBranchOutOfStockItems(items);
