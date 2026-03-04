@@ -1,6 +1,6 @@
 (function ($) {
   'use strict';
-  window.__EILAT_CHECKOUT_VERSION = '2.3.6';
+  window.__EILAT_CHECKOUT_VERSION = '2.3.7';
 
   // Constants for easier modification and clearer references
   const eilatModeCookieName = 'eilatMode';
