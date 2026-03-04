@@ -1,6 +1,6 @@
 (function ($) {
   'use strict';
-  window.__EILAT_CHECKOUT_VERSION = '2.3.4';
+  window.__EILAT_CHECKOUT_VERSION = '2.3.7';
 
   // Constants for easier modification and clearer references
   const eilatModeCookieName = 'eilatMode';
@@ -388,7 +388,7 @@
 
   function buildPickupNoticeHtml(storeName) {
     return '<div style="text-align:center;direction:rtl;margin:0 0 0.5em;padding:0 0 0.8em;border-bottom:1px solid #eee;">'
-      + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">ההזמנה תהיה מוכנה עד 14 ימי עסקים.</p>'
+      + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">ההזמנה תהיה מוכנה עד יום עסקים - בהתאם לתקנון.</p>'
       + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">אנא המתינו למסרון SMS המאשר כי הזמנתכם מוכנה.</p>'
       + '<p style="color:#333;font-size:15px;line-height:1.8;margin:0;">יש להציג מספר הזמנה ותעודה מזהה בעת האיסוף.</p>'
       + '</div>';
@@ -431,7 +431,7 @@
   function showPickupOnlySwal(storeName) {
     var html = buildPickupNoticeHtml(storeName);
     Swal.fire(Object.assign({}, legoSwalBase, {
-      icon: 'warning',
+      icon: 'success',
       title: 'איסוף עצמי - ' + escapeHtml(storeName),
       html: html,
       confirmButtonText: 'הבנתי, תודה!',
@@ -458,7 +458,7 @@
       confirmButtonText: 'הסר מוצרים חסרים',
       cancelButtonText: 'בחרו שיטת משלוח אחרת',
       showCancelButton: true,
-      reverseButtons: true,
+      reverseButtons: false,
     })).then(function (result) {
       if (result.isConfirmed) {
         removeBranchOutOfStockItems(items);

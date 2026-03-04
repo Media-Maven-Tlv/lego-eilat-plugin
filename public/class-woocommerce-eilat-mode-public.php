@@ -179,9 +179,10 @@ class Woocommerce_Eilat_Mode_Public
 		?>
 		<!-- Pickup inline notice (hidden by default, toggled via JS) -->
 		<div id="lego-pickup-notice" class="lego-pickup-notice" style="display:none;">
-			<p class="lego-pickup-notice__title">⚠️ שימו לב</p>
-			<p>לקוחות יקרים, שימו לב - נבחרה האפשרות ל<span class="lego-pickup-method-name"></span>.
-			אנא המתינו למסרון המאשר כי ההזמנה מוכנה לאיסוף.</p>
+			<p class="lego-pickup-notice__title">איסוף עצמי - <span class="lego-pickup-method-name"></span></p>
+			<p>ההזמנה תהיה מוכנה עד יום עסקים - בהתאם לתקנון.</p>
+			<p>אנא המתינו למסרון SMS המאשר כי הזמנתכם מוכנה.</p>
+			<p>יש להציג מספר הזמנה ותעודה מזהה בעת האיסוף.</p>
 		</div>
 		<?php
 	}
@@ -199,9 +200,10 @@ class Woocommerce_Eilat_Mode_Public
 		<!-- Pickup full-screen popup (hidden by default, shown via JS) -->
 		<div id="lego-pickup-popup" class="lego-pickup-popup__backdrop" style="display:none;">
 			<div class="lego-pickup-popup__content">
-				<p class="lego-pickup-notice__title">⚠️ שימו לב</p>
-				<p>לקוחות יקרים, שימו לב - נבחרה האפשרות ל<span class="lego-pickup-method-name"></span>.
-				אנא המתינו למסרון המאשר כי ההזמנה מוכנה לאיסוף.</p>
+				<p class="lego-pickup-notice__title">איסוף עצמי - <span class="lego-pickup-method-name"></span></p>
+				<p>ההזמנה תהיה מוכנה עד יום עסקים - בהתאם לתקנון.</p>
+				<p>אנא המתינו למסרון SMS המאשר כי הזמנתכם מוכנה.</p>
+				<p>יש להציג מספר הזמנה ותעודה מזהה בעת האיסוף.</p>
 				<button type="button" class="lego-pickup-popup__btn" id="lego-pickup-popup-close">הבנתי, תודה!</button>
 			</div>
 		</div>
