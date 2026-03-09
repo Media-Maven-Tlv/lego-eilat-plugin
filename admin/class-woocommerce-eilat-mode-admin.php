@@ -186,11 +186,19 @@ function my_eilat_settings_init()
 	// Register a new setting for "custom-settings" page.
 	register_setting('eilat-settings', 'eilat_mode_enabled');
 	register_setting('eilat-settings', 'excluded_dates');
-	register_setting('eilat-settings', 'selected_time_slots');
 	register_setting('eilat-settings', 'email_to');
 	register_setting('eilat-settings', 'eilat_pickup_method');
 	register_setting('eilat-settings', 'eilat_min_stock');
 	register_setting('eilat-settings', 'delivery_date_status');
+	register_setting('eilat-settings', 'eilat_closing_time');
+	register_setting('eilat-settings', 'eilat_opening_time');
+	register_setting('eilat-settings', 'eilat_closed_days', array(
+		'type'              => 'array',
+		'sanitize_callback' => function ($value) {
+			return is_array($value) ? array_map('absint', $value) : array();
+		},
+		'default'           => array(5, 6),
+	));
 
 	// Register a new section in the "custom-settings" page.
 	add_settings_section(
@@ -214,13 +222,6 @@ function my_eilat_settings_init()
 		'eilat_settings_excluded_dates', // As ID
 		'Excluded Dates', // Title
 		'my_eilat_settings_excluded_dates_callback', // Callback
-		'eilat-settings', // Page
-		'eilat_settings_section' // Section
-	);
-	add_settings_field(
-		'eilat_settings_selected_time_slots', // As ID
-		'Selected Time Slots', // Title
-		'my_eilat_settings_selected_time_slots_callback', // Callback
 		'eilat-settings', // Page
 		'eilat_settings_section' // Section
 	);
@@ -252,8 +253,27 @@ function my_eilat_settings_init()
 		'eilat-settings', // Page
 		'eilat_settings_section' // Section
 	);
-
-	// Repeat add_settings_field() for other settings as needed.
+	add_settings_field(
+		'eilat_settings_opening_time',
+		'שעת פתיחה',
+		'my_eilat_settings_opening_time_callback',
+		'eilat-settings',
+		'eilat_settings_section'
+	);
+	add_settings_field(
+		'eilat_settings_closing_time',
+		'שעת סגירה',
+		'my_eilat_settings_closing_time_callback',
+		'eilat-settings',
+		'eilat_settings_section'
+	);
+	add_settings_field(
+		'eilat_settings_closed_days',
+		'ימים סגורים',
+		'my_eilat_settings_closed_days_callback',
+		'eilat-settings',
+		'eilat_settings_section'
+	);
 }
 add_action('admin_init', 'my_eilat_settings_init');
 
@@ -279,15 +299,6 @@ function my_eilat_settings_excluded_dates_callback()
 
 }
 
-function my_eilat_settings_selected_time_slots_callback()
-{
-	// HTML input for the 'selected_time_slots' setting
-	$value = get_option('selected_time_slots');
-	echo '<input type="select" multiple id="selected_time_slots" name="selected_time_slots" value="' . $value . '">';
-
-	// Add more input fields as needed
-
-}
 
 function my_eilat_settings_email_to_callback()
 {
@@ -327,6 +338,46 @@ function my_eilat_settings_eilat_min_stock_callback()
 
 	// Add more input fields as needed
 
+}
+
+function my_eilat_settings_opening_time_callback()
+{
+	$value = get_option('eilat_opening_time', '11:00');
+	echo '<input type="time" id="eilat_opening_time" name="eilat_opening_time" value="' . esc_attr($value) . '" step="1800">';
+	echo '<p class="description">שעת הפתיחה של הסניף (ברירת מחדל: 11:00). חלונות הזמן יתחילו מהשעה הזו.</p>';
+}
+
+function my_eilat_settings_closing_time_callback()
+{
+	$value = get_option('eilat_closing_time', '19:00');
+	echo '<input type="time" id="eilat_closing_time" name="eilat_closing_time" value="' . esc_attr($value) . '" step="1800">';
+	echo '<p class="description">שעת הסגירה של הסניף (ברירת מחדל: 19:00). חלון הזמן האחרון יסתיים בשעה זו.</p>';
+}
+
+function my_eilat_settings_closed_days_callback()
+{
+	$value = get_option('eilat_closed_days', array(5, 6));
+	if (!is_array($value)) {
+		$value = array(5, 6);
+	}
+	$days = array(
+		0 => 'ראשון',
+		1 => 'שני',
+		2 => 'שלישי',
+		3 => 'רביעי',
+		4 => 'חמישי',
+		5 => 'שישי',
+		6 => 'שבת',
+	);
+	echo '<fieldset>';
+	foreach ($days as $num => $label) {
+		$checked = in_array($num, $value) ? 'checked' : '';
+		echo '<label style="margin-inline-end: 12px;">';
+		echo '<input type="checkbox" name="eilat_closed_days[]" value="' . $num . '" ' . $checked . '> ' . $label;
+		echo '</label>';
+	}
+	echo '</fieldset>';
+	echo '<p class="description">בחר את הימים בהם הסניף סגור.</p>';
 }
 
 

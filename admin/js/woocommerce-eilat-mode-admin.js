@@ -2,7 +2,22 @@
   'use strict';
 
   $(document).ready(function () {
+    var isCalendarPage = window.location.href.indexOf('page=eilat-delivery-calendar') > -1;
+    var isSettingsPage = window.location.href.indexOf('page=eilat-settings') > -1;
+
+    if (isCalendarPage) {
+      initDeliveryCalendar();
+    }
+
+    if (isSettingsPage) {
+      initSettingsPage();
+    }
+  });
+
+  function initDeliveryCalendar() {
     var calendarEl = document.getElementById('calendar');
+    if (!calendarEl) return;
+
     var loadingOverlay = $('#loading-overlay');
 
     var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -31,15 +46,11 @@
         });
       },
       eventDidMount: function (info) {
-        var orderDetails = `
-            <strong>Order #${info.event.title.replace(
-              'Order #',
-              ''
-            )}</strong><br>
-            Customer: ${info.event.extendedProps.customerName}<br>
-            Total: ₪${info.event.extendedProps.total}<br>
-            Status: ${info.event.extendedProps.status}
-        `;
+        var orderDetails =
+          '<strong>Order #' + info.event.title.replace('Order #', '') + '</strong><br>' +
+          'Customer: ' + info.event.extendedProps.customerName + '<br>' +
+          'Total: ₪' + info.event.extendedProps.total + '<br>' +
+          'Status: ' + info.event.extendedProps.status;
 
         $(info.el).attr('title', orderDetails);
 
@@ -68,31 +79,27 @@
       },
     });
 
-    if (window.location.href.indexOf('page=eilat-delivery-calendar') > -1) {
-      calendar.render();
-    }
+    calendar.render();
+  }
 
-    if (window.location.href.indexOf('page=eilat-settings') > -1) {
-      $('#excluded_dates').flatpickr({
-        locale: 'he',
-        mode: 'multiple',
-        minDate: 'today',
-        dateFormat: 'd/m/Y',
-        altInput: true,
-        altFormat: 'd/m/Y',
-        enableTime: false,
-        time_24hr: true,
-        inline: true,
-        theme: 'airbnb',
-        disable: [
-          function (date) {
-            return (
-              date.getDay() === 6 ||
-              date.getDay() === 5
-            );
-          },
-        ],
-      });
-    }
-  });
+  function initSettingsPage() {
+    $('#excluded_dates').flatpickr({
+      locale: 'he',
+      mode: 'multiple',
+      minDate: 'today',
+      dateFormat: 'd/m/Y',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      enableTime: false,
+      time_24hr: true,
+      inline: true,
+      theme: 'airbnb',
+      disable: [
+        function (date) {
+          return date.getDay() === 6 || date.getDay() === 5;
+        },
+      ],
+    });
+  }
+
 })(jQuery);

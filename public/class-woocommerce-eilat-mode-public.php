@@ -130,6 +130,16 @@ class Woocommerce_Eilat_Mode_Public
 		
 		$excluded_dates = get_option('excluded_dates');
 		wp_localize_script('woocommerce-eilat-mode-delivery', 'excluded_dates', $excluded_dates);
+
+		$closed_days = get_option('eilat_closed_days', array(5, 6));
+		if (!is_array($closed_days)) {
+			$closed_days = array(5, 6);
+		}
+		wp_localize_script('woocommerce-eilat-mode-delivery', 'eilat_delivery_config', array(
+			'opening_time' => get_option('eilat_opening_time', '11:00'),
+			'closing_time' => get_option('eilat_closing_time', '19:00'),
+			'closed_days'  => array_map('intval', $closed_days),
+		));
 	}
 
 	/**

@@ -1637,6 +1637,29 @@ function add_eilat_banner()
 }
 
 
+function get_eilat_time_slots()
+{
+	$opening = get_option('eilat_opening_time', '11:00');
+	$closing = get_option('eilat_closing_time', '19:00');
+
+	$start = strtotime($opening);
+	$end   = strtotime($closing);
+	if ($start === false || $end === false || $start >= $end) {
+		$start = strtotime('11:00');
+		$end   = strtotime('19:00');
+	}
+
+	$slots = array('' => 'שעת איסוף');
+	$current = $start;
+	while ($current < $end) {
+		$next  = $current + 1800; // 30 minutes
+		$label = date('H:i', $current) . ' - ' . date('H:i', $next);
+		$slots[$label] = $label;
+		$current = $next;
+	}
+	return $slots;
+}
+
 function add_custom_checkout_fields_between_shipping_and_payment($checkout)
 {
 	if (!is_a($checkout, 'WC_Checkout')) {
@@ -1649,39 +1672,17 @@ function add_custom_checkout_fields_between_shipping_and_payment($checkout)
 		'type'          => 'text',
 		'class'         => array('order-delivery-date form-row-wide'),
 		'label'         => __('תאריך איסוף'),
-		'required'      => true,  // Initially not required
+		'required'      => true,
 	), $checkout->get_value('order_delivery_date'));
 
 	// Delivery Time Field
 	woocommerce_form_field('order_delivery_time', array(
 		'type'          => 'select',
 		'class'         => array('order-delivery-time form-row-wide'),
-		'options'				=> array(
-			'' => 'שעת איסוף',
-			'11:00 - 11:30' => '11:00 - 11:30',
-			'11:30 - 12:00' => '11:30 - 12:00',
-			'12:00 - 12:30' => '12:00 - 12:30',
-			'12:30 - 13:00' => '12:30 - 13:00',
-			'13:00 - 13:30' => '13:00 - 13:30',
-			'13:30 - 14:00' => '13:30 - 14:00',
-			'14:00 - 14:30' => '14:00 - 14:30',
-			'14:30 - 15:00' => '14:30 - 15:00',
-			'15:00 - 15:30' => '15:00 - 15:30',
-			'15:30 - 16:00' => '15:30 - 16:00',
-			'16:00 - 16:30' => '16:00 - 16:30',
-			'16:30 - 17:00' => '16:30 - 17:00',
-			'17:00 - 17:30' => '17:00 - 17:30',
-			'17:30 - 18:00' => '17:30 - 18:00',
-			'18:00 - 18:30' => '18:00 - 18:30',
-			'18:30 - 19:00' => '18:30 - 19:00',
-			'19:00 - 19:30' => '19:00 - 19:30',
-			'19:30 - 20:00' => '19:30 - 20:00',
-			'20:00 - 20:30' => '20:00 - 20:30',
-			'20:30 - 21:00' => '20:30 - 21:00',
-		),
+		'options'       => get_eilat_time_slots(),
 		'label'         => '',
-		'placeholder'     => '',
-		'required'      => true,  // Initially not required
+		'placeholder'   => '',
+		'required'      => true,
 	), $checkout->get_value('order_delivery_time'));
 
 	echo '</div>';
@@ -1691,11 +1692,38 @@ add_action('woocommerce_checkout_process', 'custom_checkout_field_process');
 function custom_checkout_field_process()
 {
 	$eilatMode = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
-	if (isset($_POST['order_delivery_date']) && empty($_POST['order_delivery_date']) && $eilatMode) {
+	if (!$eilatMode) {
+		return;
+	}
+
+	if (isset($_POST['order_delivery_date']) && empty($_POST['order_delivery_date'])) {
 		wc_add_notice(__('יש לבחור תאריך איסוף'), 'error');
 	}
-	if (isset($_POST['order_delivery_time']) && empty($_POST['order_delivery_time']) && $eilatMode) {
+	if (isset($_POST['order_delivery_time']) && empty($_POST['order_delivery_time'])) {
 		wc_add_notice(__('יש לבחור שעת איסוף'), 'error');
+	}
+
+	if (!empty($_POST['order_delivery_date'])) {
+		$date_str = sanitize_text_field($_POST['order_delivery_date']);
+		$timestamp = strtotime(str_replace('/', '-', $date_str));
+		if ($timestamp) {
+			$closed_days = get_option('eilat_closed_days', array(5, 6));
+			if (!is_array($closed_days)) {
+				$closed_days = array(5, 6);
+			}
+			$day_of_week = (int) date('w', $timestamp);
+			if (in_array($day_of_week, array_map('intval', $closed_days), true)) {
+				wc_add_notice(__('לא ניתן לבחור תאריך איסוף ביום סגור'), 'error');
+			}
+		}
+	}
+
+	if (!empty($_POST['order_delivery_time'])) {
+		$submitted_slot = sanitize_text_field($_POST['order_delivery_time']);
+		$valid_slots = get_eilat_time_slots();
+		if (!isset($valid_slots[$submitted_slot])) {
+			wc_add_notice(__('שעת האיסוף שנבחרה אינה תקינה'), 'error');
+		}
 	}
 }
 
