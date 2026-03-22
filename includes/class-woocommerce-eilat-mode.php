@@ -356,7 +356,7 @@ add_filter('woocommerce_email_actions', 'custom_email_actions', 20, 1);
 //insert new order as wc-eilat-pickup
 function set_custom_order_status_based_on_eilat_mode($order, $data)
 {
-	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+	if (is_eilat_mode_active()) {
 		$order->set_status('eilat-pickup');
 	}
 }
@@ -387,6 +387,55 @@ function get_cookie_eilat_mode()
 		$result = isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true';
 	}
 	return $result;
+}
+
+// Check if the chosen shipping method at checkout is the Eilat pickup method.
+// This serves as a server-side fallback when the cookie is missing.
+function is_eilat_shipping_method_chosen()
+{
+	static $result = null;
+	if ($result !== null) {
+		return $result;
+	}
+
+	if (!is_eilat_globally_enabled()) {
+		$result = false;
+		return $result;
+	}
+
+	$eilat_method = get_option('eilat_pickup_method', '');
+	if (empty($eilat_method)) {
+		$result = false;
+		return $result;
+	}
+
+	// Check POST data (checkout submission / update_order_review AJAX)
+	if (!empty($_POST['shipping_method']) && is_array($_POST['shipping_method'])) {
+		foreach ($_POST['shipping_method'] as $method) {
+			if ($method === $eilat_method) {
+				$result = true;
+				return $result;
+			}
+		}
+	}
+
+	// Check WC session chosen shipping methods
+	if (function_exists('WC') && WC()->session) {
+		$chosen = WC()->session->get('chosen_shipping_methods');
+		if (is_array($chosen) && in_array($eilat_method, $chosen, true)) {
+			$result = true;
+			return $result;
+		}
+	}
+
+	$result = false;
+	return $result;
+}
+
+// Determine Eilat mode: cookie OR shipping method fallback
+function is_eilat_mode_active()
+{
+	return get_cookie_eilat_mode() || is_eilat_shipping_method_chosen();
 }
 
 // Cache eilat_min_stock option
@@ -621,6 +670,18 @@ function eilat_conditionally_register_tax_filters()
 	}
 }
 
+// Late tax filter registration: catches cases where the cookie was missing at init
+// but the shipping method IS Eilat (e.g. during checkout or update_order_review AJAX)
+add_action('woocommerce_before_calculate_totals', 'eilat_late_register_tax_filters', 5);
+function eilat_late_register_tax_filters()
+{
+	if (!has_filter('woocommerce_product_get_tax_class', 'apply_zero_tax_class_for_eilat_mode')
+		&& is_eilat_shipping_method_chosen()) {
+		add_filter('woocommerce_product_get_tax_class', 'apply_zero_tax_class_for_eilat_mode', 10, 2);
+		add_filter('woocommerce_shipping_tax_class', 'set_zero_shipping_tax_for_eilat_mode', 10, 3);
+	}
+}
+
 function apply_zero_tax_class_for_eilat_mode($tax_class, $product)
 {
 	return 'Zero Rate';
@@ -738,11 +799,19 @@ function adjust_eilat_prices($cart)
 // }
 
 
+add_action('woocommerce_after_checkout_validation', 'eilat_enforce_cod_payment', 15, 2);
+function eilat_enforce_cod_payment($data, $errors)
+{
+	if (is_eilat_shipping_method_chosen() && isset($data['payment_method']) && $data['payment_method'] !== 'cod') {
+		$errors->add('eilat_payment', __('הזמנות לאיסוף מאילת ניתנות לתשלום בעת האיסוף בלבד.', 'woocommerce'));
+	}
+}
+
 add_action('woocommerce_after_checkout_validation', 'custom_checkout_field_validation', 20, 2);
 
 function custom_checkout_field_validation($data, $errors)
 {
-	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+	if (is_eilat_mode_active()) {
 		// Define the fields that you want to ignore during validation
 		$fields_to_ignore = [
 			'billing_address_1',
@@ -769,15 +838,14 @@ function custom_checkout_field_validation($data, $errors)
 add_filter('woocommerce_available_payment_gateways', 'limit_payment_methods_for_eilat_mode');
 function limit_payment_methods_for_eilat_mode($available_gateways)
 {
-	// Check if Eilat mode is on based on the cookie
-	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+	if (is_eilat_mode_active()) {
 		foreach ($available_gateways as $gateway_id => $gateway) {
 			if ($gateway_id !== 'cod') {
-				unset($available_gateways[$gateway_id]); // Unset all gateways except COD
+				unset($available_gateways[$gateway_id]);
 			}
 		}
 	} else {
-		unset($available_gateways['cod']); // Unset COD if not in Eilat mode
+		unset($available_gateways['cod']);
 	}
 
 	return $available_gateways;
@@ -846,7 +914,7 @@ function custom_terms_conditions_text($text)
 add_action('woocommerce_checkout_process', 'validate_product_categories_during_checkout', 1);
 function validate_product_categories_during_checkout()
 {
-	if (!get_cookie_eilat_mode()) {
+	if (!is_eilat_mode_active()) {
 		return;
 	}
 	
@@ -1002,7 +1070,7 @@ function display_eilat_stock_admin_order_item($product, $item, $item_id)
 
 // Saving Eilat Mode to Order Meta - HPOS compatible
 add_action('woocommerce_checkout_update_order_meta', function ($order_id) {
-	if (isset($_COOKIE['eilatMode']) && $_COOKIE['eilatMode'] === 'true') {
+	if (is_eilat_mode_active()) {
 		$order = wc_get_order($order_id);
 		if ($order) {
 			$order->update_meta_data('_eilat_mode', 'yes');

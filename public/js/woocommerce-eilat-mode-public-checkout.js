@@ -83,12 +83,23 @@
   }
 
   function applyInitialSettings() {
+    var currentVal = $('select#shipping_method_0').val() || '';
+
     if (eilatGloballyEnabled) {
-      const isEilatMode = getCookie(eilatModeCookieName) === 'true';
-      toggleEilatMode(isEilatMode);
+      var shippingIsEilat = currentVal === local_pickup;
+      var cookieIsEilat = getCookie(eilatModeCookieName) === 'true';
+
+      if (shippingIsEilat && !cookieIsEilat) {
+        setCookie(eilatModeCookieName, 'true', 1);
+        cookieIsEilat = true;
+      } else if (!shippingIsEilat && cookieIsEilat) {
+        setCookie(eilatModeCookieName, 'false', 1);
+        cookieIsEilat = false;
+      }
+
+      toggleEilatMode(cookieIsEilat);
     }
 
-    var currentVal = $('select#shipping_method_0').val() || '';
     if (isBranchStockCheckMethod(currentVal)) {
       checkBranchStock(currentVal, getBranchStoreName(currentVal));
     } else if (isPickupMethod(currentVal)) {
